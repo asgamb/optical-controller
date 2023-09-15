@@ -2,3 +2,5 @@ templates
 static
 venv
 .gitignore
+.idea
+__pycache__
