@@ -8,8 +8,8 @@ from flask import render_template
 from flask_restplus import Resource, Api
 
 g = None
-nodes_json = 'nodes.json'
-topology_json = 'topology-optical2.json'
+nodes_json = 'json_files/nodes.json'
+topology_json = 'json_files/topology-optical2.json'
 
 nodes_dict = None
 links_dict = None
