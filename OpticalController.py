@@ -66,7 +66,7 @@ class AddLightpath(Resource):
         links, path = compute_path(src, dst)
         if len(path) < 2:
             return 'Error', 404
-        flows, band, slots, fiber_f, fiber_b, op, n_slots = rsa(links, path, bitrate)
+        flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa(links, path, bitrate)
         if debug:
             print(flows, slots)
         if flows is None:
@@ -76,7 +76,7 @@ class AddLightpath(Resource):
             slots_i.append(int(i))
 
         db_flows[flow_id]["flows"] = flows
-        db_flows[flow_id]["band"] = band
+        db_flows[flow_id]["band_type"] = bx
         db_flows[flow_id]["slots"] = slots_i
         db_flows[flow_id]["fiber_forward"] = fiber_f
         db_flows[flow_id]["fiber_backward"] = fiber_b
@@ -84,6 +84,8 @@ class AddLightpath(Resource):
         db_flows[flow_id]["n_slots"] = n_slots
         db_flows[flow_id]["links"] = links
         db_flows[flow_id]["path"] = path
+        db_flows[flow_id]["band"] = band
+        db_flows[flow_id]["freq"] = f0
         db_flows[flow_id]["is_active"] = True
 
         return flow_id, 200
@@ -287,7 +289,8 @@ def get_slots(links, val):
             if len(fib["s_slots"]) > 0:
 
                 s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val))
-            print(l, c_slots[l])
+            if debug:
+                print(l, c_slots[l])
             found = 1
         if found == 0:
             return [], [], []
@@ -366,7 +369,7 @@ def restore_link(fib, slots, band):
 def del_flow(flow):
     global links_dict
     flows = flow["flows"]
-    band = flow["band"]
+    band = flow["band_type"]
     slots = flow["slots"]
     fiber_f = flow["fiber_forward"]
     fiber_b = flow["fiber_backward"]
@@ -374,6 +377,7 @@ def del_flow(flow):
     n_slots = flow["n_slots"]
     path = flow["path"]
     links = flow["links"]
+
     for l in fiber_f.keys():
         if debug:
             print(l)
@@ -415,7 +419,8 @@ def init_link_slots():
                 fib["l_slots"] = list(range(0, Nl))
             if len(fib["s_slots"]) > 0:
                 fib["s_slots"] = list(range(0, Ns))
-        print(fib)
+        if debug:
+            print(fib)
 
 
 def get_fibers_forward(links, slots, band):
@@ -546,6 +551,33 @@ def select_slots_and_ports(links, n_slots, c, l, s):
     return t_flows, band, slots, fibers_f, fibers_b
 
 
+def get_slot_frequency(b, n):
+    if debug:
+        print(n)
+    if b == "c_slots":
+        return Fc + n * 12.5
+    if b == "s_slots":
+        return Fs + n * 12.5
+    if b == "l_slots":
+        return Fl + n * 12.5
+
+
+def freqency_converter(b, slots):
+    l = len(slots)
+    if debug:
+        print(slots)
+    if l % 2 == 0:
+        if debug:
+            print("pari {}".format(l))
+        fx = get_slot_frequency(b, slots[int(l / 2)-1])
+        if debug:
+            print(fx)
+        f0 = fx + 6.25
+    else:
+        f0 = get_slot_frequency(b, slots[int((l + 1) / 2) - 1])
+    return f0, 12.5 * l
+
+
 def rsa(links, path, rate):
     global links_dict
     global nodes_dict
@@ -557,10 +589,13 @@ def rsa(links, path, rate):
         print(l_slots)
         print(s_slots)
     if len(c_slots) > 0 or len(l_slots) > 0 or len(s_slots) > 0:
-        flow_list, band, slots, fiber_f, fiber_b = select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots)
+        flow_list, band_range, slots, fiber_f, fiber_b = select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots)
+        f0, band = freqency_converter(band_range, slots)
+        if debug:
+            print(f0, band)
         print("INFO: RSA completed")
 
-        return flow_list, band, slots, fiber_f, fiber_b, op, num_slots
+        return flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
     return None, "", [], {}, {}, 0, 0
 
 
