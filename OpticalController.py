@@ -4,8 +4,9 @@ import numpy as np
 
 from flask import Flask
 from flask import render_template
-##from flask_appbuilder import IndexView, AppBuilder
 from flask_restplus import Resource, Api
+
+testing = 1
 
 g = None
 nodes_json = 'json_files/nodes.json'
@@ -21,12 +22,24 @@ debug = 0
 flow_id = 0
 db_flows = {}
 
+Fl = 184800
+Fc = 192000
+Fs = 196200
+
+Nl = 550
+Nc = 320
+#Nc = 10
+Ns = 720
+
+
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Optical controller API',
           description='Rest API to configure OC Optical devices in TFS')
 # app.config.from_object('config')
 # appbuilder = AppBuilder(app, indexview=MyIndexView)
 optical = api.namespace('OpticalTFS', description='TFS Optical APIs')
+
+
 
 
 @app.route('/index')
@@ -124,27 +137,6 @@ class GetFlows(Resource):
             return "Error", 404
 
 
-'''
-
-def createJSONNetwork():
-    global g
-    graph = {}
-    graph["nodes"] = []
-    graph["links"] = []
-    for v in g:
-        graph["nodes"].append({"id":v.get_id(), "name": v.get_id()})
-        for w in v.get_connections():
-            vid = v.get_id()
-            wid = w.get_id()
-            graph["links"].append({"source":vid, "target":wid, "portsrc":v.get_port(w), "portdst":w.get_port(v)})
-            #graph.append([vid, wid, v.get_port(w), w.get_port(v), v.get_weight(w), w.get_weight(v)])
-    out_file = open("static/network_json.json", "w")
-    json.dump(graph, out_file)
-    return graph
-
-'''
-
-
 def common_slots(a, b):
     return list(np.intersect1d(a, b))
 
@@ -213,6 +205,8 @@ def compute_path(src, dst):
 def map_modulation_to_op(mod):
     if mod == "DP-QPSK":
         return 1
+    if mod == "DP-16QAM":
+        return 7
 
 
 def map_rate_to_slot(rate):
@@ -221,6 +215,13 @@ def map_rate_to_slot(rate):
         slots = 4
         op = map_modulation_to_op(mod)
         return op, slots
+    if rate == 400:
+        mod = "DP-16QAM"
+        slots = 8
+        op = map_modulation_to_op(mod)
+        return op, slots
+    else:
+        return 2, 5
 
 
 def consecutives(x, val):
@@ -252,10 +253,6 @@ def combine(ls1, ls2):
     return temp
 
 
-# def common_slots(a, b):
-#    return list(np.intersect1d(a, b))
-
-
 def get_slots(links, val):
     c_sts = []
     l_sts = []
@@ -274,17 +271,23 @@ def get_slots(links, val):
             fib = links_dict[l]['fibers'][f]
             if l == add:
                 if fib["used"]:
-                    if debug:
-                        print("ERROR: link {}, fiber {} is already in use".format(l, f))
+                    #if debug:
+                    print("ERROR: link {}, fiber {} is already in use".format(l, f))
                     continue
             if l == drop:
                 if fib["used"]:
-                    if debug:
-                        print("EROOR: link {}, fiber {} is already in use".format(l, f))
+                    #if debug:
+                    print("EROOR: link {}, fiber {} is already in use".format(l, f))
                     continue
-            c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val))
-            l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val))
-            s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val))
+            if len(fib["c_slots"])> 0:
+                c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val))
+            if len(fib["l_slots"]) > 0:
+
+                l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val))
+            if len(fib["s_slots"]) > 0:
+
+                s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val))
+            print(l, c_slots[l])
             found = 1
         if found == 0:
             return [], [], []
@@ -319,7 +322,7 @@ def get_slots(links, val):
     return c_sts, l_sts, s_sts
 
 
-def slot_slection(c, l, s, n_slots):
+def slot_selection(c, l, s, n_slots):
     # First Fit
     if len(c) >= n_slots:
         return "c_slots", c[0: n_slots]
@@ -385,8 +388,9 @@ def del_flow(flow):
                 if debug:
                     print(fib[band])
     for rl in fiber_b.keys():
-        print(rl)
-        print(fiber_b[rl])
+        if debug:
+            print(rl)
+            print(fiber_b[rl])
         # if debug:
         #    print(rl)
         #    print(fiber_b[rl])
@@ -395,8 +399,23 @@ def del_flow(flow):
             rfib = links_dict[rl]['fibers'][rf]
             if not list_in_list(slots, rfib[band]):
                 restore_link(rfib, slots, band)
-                print(fib[band])
+                if debug:
+                    print(rfib[band])
     return True
+
+
+def init_link_slots():
+    global links_dict
+    for l in links_dict:
+        for f in links_dict[l]["fibers"]:
+            fib = links_dict[l]["fibers"][f]
+            if len(fib["c_slots"]) > 0:
+                fib["c_slots"] = list(range(0, Nc))
+            if len(fib["l_slots"]) > 0:
+                fib["l_slots"] = list(range(0, Nl))
+            if len(fib["s_slots"]) > 0:
+                fib["s_slots"] = list(range(0, Ns))
+        print(fib)
 
 
 def get_fibers_forward(links, slots, band):
@@ -466,7 +485,7 @@ def select_slots_and_ports(links, n_slots, c, l, s):
 
     if debug:
         print(links_dict)
-    band, slots = slot_slection(c, l, s, n_slots)
+    band, slots = slot_selection(c, l, s, n_slots)
     if band is None:
         print("No slots available in the three bands")
         return None, None, None
@@ -547,15 +566,7 @@ def rsa(links, path, rate):
 
 if __name__ == '__main__':
     nodes_dict, links_dict = readTopologyData(nodes_json, topology_json)
+    if not testing:
+        init_link_slots()
     g = initGraph()
     app.run(host='0.0.0.0', port=5000)
-
-    '''
-    src = "t1"
-    dst = "t2"
-    bitrate = 100
-
-    links, path = compute_path(src, dst)
-    ff = rsa(links, path, bitrate)
-    print(ff)
-    '''

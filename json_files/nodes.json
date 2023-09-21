@@ -3,32 +3,37 @@
         "id":0,
         "ip":"10.30.2.207",
         "port":"50001",
-        "type":"OC-ROADM"
+        "type":"OC-ROADM",
+        "driver": "OpticalOC"
     },
 
     "r2":{
         "id":1,
         "ip":"10.30.2.208",
         "port":"50001",
-        "type":"OC-ROADM"
+        "type":"OC-ROADM",
+        "driver": "OpticalOC"
     },
 
     "r3":{
         "id":2,
         "ip":"10.30.2.209",
         "port":"50001",
-        "type":"OC-ROADM"
+        "type":"OC-ROADM",
+        "driver": "OpticalOC"
     },
     "t1":{
         "id":3,
         "ip":"10.30.2.210",
         "port":"50001",
-        "type":"OC-TP"
-    },    
+        "type":"OC-TP",
+        "driver": "OpticalOC"
+    },
     "t2":{
         "id":4,
         "ip":"10.30.2.211",
         "port":"50001",
-        "type":"OC-TP"
+        "type":"OC-TP",
+        "driver": "OpticalOC"
     }
 }
