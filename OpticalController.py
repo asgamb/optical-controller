@@ -383,28 +383,34 @@ def del_flow(flow):
             print(l)
             print(fiber_f[l])
         # if debug:
-
         link = links_dict[l]
-        for f in link["fibers"].keys():
-            fib = links_dict[l]['fibers'][f]
-            if not list_in_list(slots, fib[band]):
-                restore_link(fib, slots, band)
-                if debug:
-                    print(fib[band])
+        f = fiber_f[l]
+        #for f in link["fibers"].keys():
+        fib = link['fibers'][f]
+        if not list_in_list(slots, fib[band]):
+            restore_link(fib, slots, band)
+            if debug:
+                print(fib[band])
     for rl in fiber_b.keys():
         if debug:
             print(rl)
             print(fiber_b[rl])
-        # if debug:
-        #    print(rl)
-        #    print(fiber_b[rl])
         rlink = links_dict[rl]
+        rf = fiber_b[rl]
+        #for f in link["fibers"].keys():
+        rfib = rlink['fibers'][rf]
+        if not list_in_list(slots, rfib[band]):
+            restore_link(rfib, slots, band)
+            if debug:
+                print(rfib[band])
+        '''
         for rf in rlink["fibers"].keys():
             rfib = links_dict[rl]['fibers'][rf]
             if not list_in_list(slots, rfib[band]):
                 restore_link(rfib, slots, band)
                 if debug:
                     print(rfib[band])
+        '''
     return True
 
 
@@ -596,7 +602,7 @@ def rsa(links, path, rate):
         print("INFO: RSA completed")
 
         return flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
-    return None, "", [], {}, {}, 0, 0
+    return None, "", [], {}, {}, 0, 0, 0, 0
 
 
 if __name__ == '__main__':
