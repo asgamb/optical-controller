@@ -1,19 +1,19 @@
 import numpy as np
 from variables import  *
+import json
 
-#tool
+
 def common_slots(a, b):
     return list(np.intersect1d(a, b))
 
 
-#tool
 def map_modulation_to_op(mod):
     if mod == "DP-QPSK":
         return 1
     if mod == "DP-16QAM":
         return 7
 
-#tool
+
 def map_rate_to_slot(rate):
     if rate == 100:
         mod = "DP-QPSK"
@@ -28,7 +28,7 @@ def map_rate_to_slot(rate):
     else:
         return 2, 5
 
-#tool
+
 def consecutives(x, val):
     res = []
     temp = []
@@ -48,7 +48,7 @@ def consecutives(x, val):
             res.extend(temp)
     return res
 
-#tool
+
 def combine(ls1, ls2):
     temp = ls1
     for i in ls2:
@@ -58,7 +58,6 @@ def combine(ls1, ls2):
     return temp
 
 
-#tool
 def list_in_list(a, b):
     # convert list A to numpy array
     a_arr = np.array(a)
@@ -71,14 +70,12 @@ def list_in_list(a, b):
     return False
 
 
-#tool
 def reverse_link(link):
     s, d = link.split('-')
     r_link = "{}-{}".format(d, s)
     return r_link
 
 
-#tool
 def get_slot_frequency(b, n):
     if debug:
         print(n)
@@ -90,7 +87,6 @@ def get_slot_frequency(b, n):
         return Fl + n * 12.5
 
 
-#tool
 def freqency_converter(b, slots):
     l = len(slots)
     if debug:
@@ -105,3 +101,25 @@ def freqency_converter(b, slots):
     else:
         f0 = get_slot_frequency(b, slots[int((l + 1) / 2) - 1])
     return f0, 12.5 * l
+
+
+def readTopologyData(nodes, topology):
+        nodes_file = open(nodes, 'r')
+        topo_file = open(topology, 'r')
+        nodes = json.load(nodes_file)
+        topo = json.load(topo_file)
+        nodes_file.close()
+        topo_file.close()
+        return nodes, topo
+
+
+def slot_selection(c, l, s, n_slots):
+    # First Fit
+    if len(c) >= n_slots:
+        return "c_slots", c[0: n_slots]
+    elif len(l) >= n_slots:
+        return "l_slots", l[0: n_slots]
+    elif len(l) >= n_slots:
+        return "s_slots", s[0: n_slots]
+    else:
+        return None, None

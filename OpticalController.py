@@ -1,20 +1,12 @@
-import json
-import dijsktra
-import numpy as np
-
 from flask import Flask
 from flask import render_template
 from flask_restplus import Resource, Api
 from tools import *
 from variables import *
+from RSA import RSA
 
-nodes_dict = None
-links_dict = None
-flows = {}
-g = None
 
-flow_id = 0
-db_flows = {}
+rsa = None
 
 
 app = Flask(__name__)
@@ -36,57 +28,59 @@ def index():
 @optical.response(404, 'Error, not found')
 class AddLightpath(Resource):
     @staticmethod
-    def put(src, dst, bitrate, bidir = 1):
-        global flow_id
-        flow_id += 1
-        print("INFO: New request with id {}, from {} to {} with rate {} ".format(flow_id, src, dst, bitrate))
-        db_flows[flow_id] = {}
-        db_flows[flow_id]["src"] = src
-        db_flows[flow_id]["dst"] = dst
-        db_flows[flow_id]["bitrate"] = bitrate
-        db_flows[flow_id]["bidir"] = bidir
+    def put(src, dst, bitrate, bidir=1):
+        rsa.flow_id += 1
+        print("INFO: New request with id {}, from {} to {} with rate {} ".format(rsa.flow_id, src, dst, bitrate))
+        rsa.db_flows[rsa.flow_id] = {}
+        rsa.db_flows[rsa.flow_id]["src"] = src
+        rsa.db_flows[rsa.flow_id]["dst"] = dst
+        rsa.db_flows[rsa.flow_id]["bitrate"] = bitrate
+        rsa.db_flows[rsa.flow_id]["bidir"] = bidir
         if debug:
-            g.printGraph()
+            rsa.g.printGraph()
 
-        links, path = compute_path(src, dst)
+        links, path = rsa.compute_path(src, dst)
         if len(path) < 2:
             return 'Error', 404
-        flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa(links, bitrate, bidir)
-        if debug:
-            print(flows, slots)
-        if flows is None:
-            db_flows[flow_id]["flows"] = {}
-            db_flows[flow_id]["band_type"] = ""
-            db_flows[flow_id]["slots"] = []
-            db_flows[flow_id]["fiber_forward"] = []
-            db_flows[flow_id]["fiber_backward"] = []
-            db_flows[flow_id]["op-mode"] = 0
-            db_flows[flow_id]["n_slots"] = 0
-            db_flows[flow_id]["links"] = {}
-            db_flows[flow_id]["path"] = []
-            db_flows[flow_id]["band"] = 0
-            db_flows[flow_id]["freq"] = 0
+        if rsa is not None:
+            flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_computation(links, bitrate, bidir)
+            if debug:
+                print(flows, slots)
+            if flows is None:
+                rsa.db_flows[rsa.flow_id]["flows"] = {}
+                rsa.db_flows[rsa.flow_id]["band_type"] = ""
+                rsa.db_flows[rsa.flow_id]["slots"] = []
+                rsa.db_flows[rsa.flow_id]["fiber_forward"] = []
+                rsa.db_flows[rsa.flow_id]["fiber_backward"] = []
+                rsa.db_flows[rsa.flow_id]["op-mode"] = 0
+                rsa.db_flows[rsa.flow_id]["n_slots"] = 0
+                rsa.db_flows[rsa.flow_id]["links"] = {}
+                rsa.db_flows[rsa.flow_id]["path"] = []
+                rsa.db_flows[rsa.flow_id]["band"] = 0
+                rsa.db_flows[rsa.flow_id]["freq"] = 0
 
-            db_flows[flow_id]["is_active"] = False
-            return 'No path found', 404
-        slots_i = []
-        for i in slots:
-            slots_i.append(int(i))
+                rsa.db_flows[rsa.flow_id]["is_active"] = False
+                return 'No path found', 404
+            slots_i = []
+            for i in slots:
+                slots_i.append(int(i))
 
-        db_flows[flow_id]["flows"] = flows
-        db_flows[flow_id]["band_type"] = bx
-        db_flows[flow_id]["slots"] = slots_i
-        db_flows[flow_id]["fiber_forward"] = fiber_f
-        db_flows[flow_id]["fiber_backward"] = fiber_b
-        db_flows[flow_id]["op-mode"] = op
-        db_flows[flow_id]["n_slots"] = n_slots
-        db_flows[flow_id]["links"] = links
-        db_flows[flow_id]["path"] = path
-        db_flows[flow_id]["band"] = band
-        db_flows[flow_id]["freq"] = f0
-        db_flows[flow_id]["is_active"] = True
+            rsa.db_flows[rsa.flow_id]["flows"] = flows
+            rsa.db_flows[rsa.flow_id]["band_type"] = bx
+            rsa.db_flows[rsa.flow_id]["slots"] = slots_i
+            rsa.db_flows[rsa.flow_id]["fiber_forward"] = fiber_f
+            rsa.db_flows[rsa.flow_id]["fiber_backward"] = fiber_b
+            rsa.db_flows[rsa.flow_id]["op-mode"] = op
+            rsa.db_flows[rsa.flow_id]["n_slots"] = n_slots
+            rsa.db_flows[rsa.flow_id]["links"] = links
+            rsa.db_flows[rsa.flow_id]["path"] = path
+            rsa.db_flows[rsa.flow_id]["band"] = band
+            rsa.db_flows[rsa.flow_id]["freq"] = f0
+            rsa.db_flows[rsa.flow_id]["is_active"] = True
 
-        return flow_id, 200
+            return rsa.flow_id, 200
+        else:
+            return "Error", 404
 
 
 @optical.route('/DelLightpath/<int:flow_id>/<string:src>/<string:dst>/<int:bitrate>')
@@ -95,14 +89,13 @@ class AddLightpath(Resource):
 class DelLightpath(Resource):
     @staticmethod
     def delete(flow_id, src, dst, bitrate):
-        global db_flows
-        if flow_id in db_flows.keys():
-            flow = db_flows[flow_id]
+        if flow_id in rsa.db_flows.keys():
+            flow = rsa.db_flows[flow_id]
             match1 = flow["src"] == src and flow["dst"] == dst and flow["bitrate"] == bitrate
             match2 = flow["src"] == dst and flow["dst"] == src and flow["bitrate"] == bitrate
             if match1 or match2:
-                del_flow(flow)
-                db_flows[flow_id]["is_active"] = False
+                rsa.del_flow(flow)
+                rsa.db_flows[flow_id]["is_active"] = False
                 if debug:
                     print(links_dict)
                 return "flow {} deleted".format(flow_id), 200
@@ -118,11 +111,10 @@ class DelLightpath(Resource):
 class GetFlows(Resource):
     @staticmethod
     def get():
-        global db_flows
         try:
             if debug:
-                print(db_flows)
-            return db_flows, 200
+                print(rsa.db_flows)
+            return rsa.db_flows, 200
         except:
             return "Error", 404
 
@@ -142,374 +134,11 @@ class GetFlows(Resource):
             return "Error", 404
 
 
-def readTopologyData(nodes, topology):
-    nodes_file = open(nodes, 'r')
-    topo_file = open(topology, 'r')
-
-    nodes = json.load(nodes_file)
-    topo = json.load(topo_file)
-
-    nodes_file.close()
-    topo_file.close()
-
-    return nodes, topo
-
-
-def initGraph():
-    global nodes_dict
-    global links_dict
-
-    g = dijsktra.Graph()
-    for n in nodes_dict:
-        g.add_vertex(n)
-
-    for l in links_dict:
-        if debug:
-            print(l)
-        [s, d] = l.split('-')
-        ps = links_dict[l]["source"]
-        pd = links_dict[l]["target"]
-        g.add_edge(s, d, ps, pd, 1)
-
-    print("INFO: Graph initiated.")
-    if debug:
-        g.printGraph()
-
-    return g
-
-
-def compute_path(src, dst):
-    global g
-    global nodes_dict
-    global links_dict
-    path = dijsktra.shortest_path(g, g.get_vertex(src), g.get_vertex(dst))
-    print("INFO: Path from {} to {} with distance: {}".format(src, dst, g.get_vertex(dst).get_distance()))
-    if debug:
-        print(path)
-    links = []
-    for i in range(0, len(path) - 1):
-        s = path[i]
-        if debug:
-            print(s)
-        # print("device id", nodes_dict[s]["id"])
-        # print("ip ", nodes_dict[s]["ip"] + ":" + nodes_dict[s]["port"])
-        if i < len(path) - 1:
-            d = path[i + 1]
-            link_id = "{}-{}".format(s, d)
-            if debug:
-                print(link_id, links_dict[link_id])
-            links.append(link_id)
-    g.reset_graph()
-    return links, path
-
-
-def get_slots(links, val):
-    c_sts = []
-    l_sts = []
-    s_sts = []
-    c_slots = {}
-    l_slots = {}
-    s_slots = {}
-    add = links[0]
-    drop = links[-1]
-    for l in links:
-        c_slots[l] = []
-        l_slots[l] = []
-        s_slots[l] = []
-        found = 0
-        for f in links_dict[l]['fibers'].keys():
-            fib = links_dict[l]['fibers'][f]
-            if l == add:
-                if fib["used"]:
-                    #if debug:
-                    print("ERROR: link {}, fiber {} is already in use".format(l, f))
-                    continue
-            if l == drop:
-                if fib["used"]:
-                    #if debug:
-                    print("EROOR: link {}, fiber {} is already in use".format(l, f))
-                    continue
-            if len(fib["c_slots"])> 0:
-                c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val))
-            if len(fib["l_slots"]) > 0:
-
-                l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val))
-            if len(fib["s_slots"]) > 0:
-
-                s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val))
-            if debug:
-                print(l, c_slots[l])
-            found = 1
-        if found == 0:
-            return [], [], []
-    if debug:
-        print(c_slots)
-    keys = list(c_slots.keys())
-    if debug:
-        print(len(keys))
-    if debug:
-        print(keys[0])
-    # intersection among the slots over all links
-    for i in range(1, len(keys)):
-        if debug:
-            print(keys[i])
-        # set a for the intersection
-        if i == 1:
-            a_c = c_slots[keys[i - 1]]
-            a_l = l_slots[keys[i - 1]]
-            a_s = s_slots[keys[i - 1]]
-        else:
-            a_c = c_sts
-            a_l = l_sts
-            a_s = s_sts
-        # set b for the intersection
-        b_c = c_slots[keys[i]]
-        b_l = l_slots[keys[i]]
-        b_s = s_slots[keys[i]]
-
-        c_sts = common_slots(a_c, b_c)
-        l_sts = common_slots(a_l, b_l)
-        s_sts = common_slots(a_s, b_s)
-    return c_sts, l_sts, s_sts
-
-
-def slot_selection(c, l, s, n_slots):
-    # First Fit
-    if len(c) >= n_slots:
-        return "c_slots", c[0: n_slots]
-    elif len(l) >= n_slots:
-        return "l_slots", l[0: n_slots]
-    elif len(l) >= n_slots:
-        return "s_slots", s[0: n_slots]
-    else:
-        return None, None
-
-
-def update_link(fib, slots, band):
-    for i in slots:
-        fib[band].remove(i)
-    if 'used' in fib:
-        fib['used'] = True
-
-
-def restore_link(fib, slots, band):
-    for i in slots:
-        fib[band].append(int(i))
-
-    #fib[band].extend(slots)
-    if 'used' in fib:
-        fib['used'] = False
-    fib[band].sort()
-
-
-def del_flow(flow):
-    global links_dict
-    flows = flow["flows"]
-    band = flow["band_type"]
-    slots = flow["slots"]
-    fiber_f = flow["fiber_forward"]
-    fiber_b = flow["fiber_backward"]
-    op = flow["op-mode"]
-    n_slots = flow["n_slots"]
-    path = flow["path"]
-    links = flow["links"]
-    bidir = flow["bidir"]
-
-    for l in fiber_f.keys():
-        if debug:
-            print(l)
-            print(fiber_f[l])
-        # if debug:
-        link = links_dict[l]
-        f = fiber_f[l]
-        #for f in link["fibers"].keys():
-        fib = link['fibers'][f]
-        if not list_in_list(slots, fib[band]):
-            restore_link(fib, slots, band)
-            if debug:
-                print(fib[band])
-    if bidir:
-        for rl in fiber_b.keys():
-            if debug:
-                print(rl)
-                print(fiber_b[rl])
-            rlink = links_dict[rl]
-            rf = fiber_b[rl]
-            #for f in link["fibers"].keys():
-            rfib = rlink['fibers'][rf]
-            if not list_in_list(slots, rfib[band]):
-                restore_link(rfib, slots, band)
-                if debug:
-                    print(rfib[band])
-    return True
-
-
-def init_link_slots():
-    global links_dict
-    for l in links_dict:
-        for f in links_dict[l]["fibers"]:
-            fib = links_dict[l]["fibers"][f]
-            if len(fib["c_slots"]) > 0:
-                fib["c_slots"] = list(range(0, Nc))
-            if len(fib["l_slots"]) > 0:
-                fib["l_slots"] = list(range(0, Nl))
-            if len(fib["s_slots"]) > 0:
-                fib["s_slots"] = list(range(0, Ns))
-        if debug:
-            print(fib)
-
-
-def get_fibers_forward(links, slots, band):
-    fiber_list = {}
-    add = links[0]
-    drop = links[-1]
-    for l in links:
-        for f in links_dict[l]['fibers'].keys():
-            fib = links_dict[l]['fibers'][f]
-            if l == add:
-                if fib["used"]:
-                    if debug:
-                        print("link {}, fiber {} is already in use".format(l, f))
-                    continue
-            if l == drop:
-                if fib["used"]:
-                    if debug:
-                        print("link {}, fiber {} is already in use".format(l, f))
-                    continue
-            if list_in_list(slots, fib[band]):
-                fiber_list[l] = f
-                update_link(fib, slots, band)
-                '''
-                else:
-                    update_link(fib, slots, band, False)
-                '''
-                break
-    print("INFO: Path forward computation completed")
-    return fiber_list
-
-
-def get_fibers_backward(links, fibers, slots, band):
-    fiber_list = {}
-    r_drop = reverse_link(links[0])
-    r_add = reverse_link(links[-1])
-    for l in fibers.keys():
-        if debug:
-            print(l)
-            print(fibers[l])
-        port = links_dict[l]["fibers"][fibers[l]]["src_port"]
-        r_l = reverse_link(l)
-        r_link = links_dict[r_l]
-        for f in r_link["fibers"].keys():
-            fib = links_dict[r_l]['fibers'][f]
-            if r_link["fibers"][f]["remote_peer_port"] == port:
-                if list_in_list(slots, fib[band]):
-                    fiber_list[r_l] = f
-                    # if l == r_drop or l == r_add:
-                    update_link(fib, slots, band)
-                    # else:
-                    #    update_link(fib, slots, band, False)
-    print("INFO: Path backward computation completed")
-
-    return fiber_list
-
-
-def select_slots_and_ports(links, n_slots, c, l, s, bidir):
-    global links_dict
-    global nodes_dict
-    global flows
-
-    if debug:
-        print(links_dict)
-    band, slots = slot_selection(c, l, s, n_slots)
-    if band is None:
-        print("No slots available in the three bands")
-        return None, None, None
-    if debug:
-        print(band, slots)
-    fibers_f = get_fibers_forward(links, slots, band)
-    fibers_b = []
-    if bidir:
-        fibers_b = get_fibers_backward(links, fibers_f, slots, band)
-
-    if debug:
-        print("forward")
-        print(fibers_f)
-        print("backward")
-        print(fibers_b)
-
-    add = links[0]
-    drop = links[-1]
-    inport = 0
-    outport = 0
-    r_inport = 0
-    r_outport = 0
-    t_flows = {}
-
-    for lx in fibers_f:
-        if l == add:
-            inport = 0
-            r_outport = 0
-        if l == drop:
-            outport = 0
-            r_inport = 0
-        f = fibers_f[lx]
-        src, dst = lx.split("-")
-        outport = links_dict[lx]['fibers'][f]["src_port"]
-        flows[src] = []
-        t_flows[src] = []
-        flows[src].append({"in": inport, "out": outport})
-        t_flows[src].append({"in": inport, "out": outport})
-
-        if bidir:
-            r_inport = links_dict[lx]['fibers'][f]["local_peer_port"]
-            flows[src].append({"in": r_inport, "out": r_outport})
-            t_flows[src].append({"in": r_inport, "out": r_outport})
-
-        inport = links_dict[lx]['fibers'][f]["dst_port"]
-        if bidir:
-            r_outport = links_dict[lx]['fibers'][f]["remote_peer_port"]
-    flows[dst] = []
-    t_flows[dst] = []
-    flows[dst].append({"in": inport, "out": 0})
-    t_flows[dst].append({"in": inport, "out": 0})
-    if bidir:
-        flows[dst].append({"in": 0, "out": r_outport})
-        t_flows[dst].append({"in": 0, "out": r_outport})
-
-    if debug:
-        print(links_dict)
-
-    if debug:
-        print(flows)
-    print("INFO: Flow matrix computed")
-
-    return t_flows, band, slots, fibers_f, fibers_b
-
-
-def rsa(links, rate, bidir):
-    global links_dict
-    global nodes_dict
-    path_len = 0
-    op, num_slots = map_rate_to_slot(rate)
-    c_slots, l_slots, s_slots = get_slots(links, num_slots)
-    if debug:
-        print(c_slots)
-        print(l_slots)
-        print(s_slots)
-    if len(c_slots) > 0 or len(l_slots) > 0 or len(s_slots) > 0:
-        flow_list, band_range, slots, fiber_f, fiber_b = select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots, bidir)
-        f0, band = freqency_converter(band_range, slots)
-        if debug:
-            print(f0, band)
-        print("INFO: RSA completed")
-
-        return flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
-    return None, "", [], {}, {}, 0, 0, 0, 0
-
-
 if __name__ == '__main__':
+
     nodes_dict, links_dict = readTopologyData(nodes_json, topology_json)
+    rsa = RSA(nodes_dict, links_dict)
     if not testing:
-        init_link_slots()
-    g = initGraph()
+        rsa.init_link_slots()
+
     app.run(host='0.0.0.0', port=5000)
