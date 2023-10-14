@@ -97,10 +97,16 @@ def freqency_converter(b, slots):
         fx = get_slot_frequency(b, slots[int(l / 2)-1])
         if debug:
             print(fx)
-        f0 = fx + 6.25
+        #GHz
+        # #f0 = fx + 6.25
+        #MHz
+        f0 = int((fx + 6.25) * 1000)
     else:
         f0 = get_slot_frequency(b, slots[int((l + 1) / 2) - 1])
-    return f0, 12.5 * l
+    #GHz
+    # #return f0, 12.5 * l
+    # MHz
+    return f0, int((12.5 * l) * 1000)
 
 
 def readTopologyData(nodes, topology):

@@ -56,8 +56,10 @@ class RSA():
         c_slots = {}
         l_slots = {}
         s_slots = {}
+
         add = links[0]
         drop = links[-1]
+
         for l in links:
             c_slots[l] = []
             l_slots[l] = []
@@ -66,15 +68,17 @@ class RSA():
             for f in self.links_dict[l]['fibers'].keys():
                 fib = self.links_dict[l]['fibers'][f]
                 if l == add:
-                    if fib["used"]:
-                        #if debug:
-                        print("ERROR: link {}, fiber {} is already in use".format(l, f))
-                        continue
+                    if 'used' in fib:
+                        if fib["used"]:
+                            #if debug:
+                            print("ERROR: link {}, fiber {} is already in use".format(l, f))
+                            continue
                 if l == drop:
-                    if fib["used"]:
-                        #if debug:
-                        print("EROOR: link {}, fiber {} is already in use".format(l, f))
-                        continue
+                    if 'used' in fib:
+                        if fib["used"]:
+                            #if debug:
+                            print("EROOR: link {}, fiber {} is already in use".format(l, f))
+                            continue
                 if len(fib["c_slots"])> 0:
                     c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val))
                 if len(fib["l_slots"]) > 0:
@@ -189,15 +193,17 @@ class RSA():
             for f in self.links_dict[l]['fibers'].keys():
                 fib = self.links_dict[l]['fibers'][f]
                 if l == add:
-                    if fib["used"]:
-                        if debug:
-                            print("link {}, fiber {} is already in use".format(l, f))
-                        continue
+                    if 'used' in fib:
+                        if fib["used"]:
+                            if debug:
+                                print("link {}, fiber {} is already in use".format(l, f))
+                            continue
                 if l == drop:
-                    if fib["used"]:
-                        if debug:
-                            print("link {}, fiber {} is already in use".format(l, f))
-                        continue
+                    if 'used' in fib:
+                        if fib["used"]:
+                            if debug:
+                                print("link {}, fiber {} is already in use".format(l, f))
+                            continue
                 if list_in_list(slots, fib[band]):
                     fiber_list[l] = f
                     self.update_link(fib, slots, band)
@@ -246,42 +252,50 @@ class RSA():
             print(fibers_b)
         add = links[0]
         drop = links[-1]
-        inport = 0
-        outport = 0
-        r_inport = 0
-        r_outport = 0
+        inport = "0"
+        outport = "0"
+        r_inport = "0"
+        r_outport = "0"
         t_flows = {}
 
         for lx in fibers_f:
             if l == add:
-                inport = 0
-                r_outport = 0
+                inport = "0"
+                r_outport = "0"
             if l == drop:
-                outport = 0
-                r_inport = 0
+                outport = "0"
+                r_inport = "0"
             f = fibers_f[lx]
             src, dst = lx.split("-")
             outport = self.links_dict[lx]['fibers'][f]["src_port"]
-            self.flows[src] = []
-            t_flows[src] = []
-            self.flows[src].append({"in": inport, "out": outport})
-            t_flows[src].append({"in": inport, "out": outport})
+            self.flows[src] = {}
+            t_flows[src] = {}
+            self.flows[src]["f"] = {}
+            t_flows[src]["f"] = {}
+            self.flows[src]["b"] = {}
+            t_flows[src]["b"] = {}
+            self.flows[src]["f"] = {"in": inport, "out": outport}
+            t_flows[src]["f"] = {"in": inport, "out": outport}
 
             if bidir:
                 r_inport = self.links_dict[lx]['fibers'][f]["local_peer_port"]
-                self.flows[src].append({"in": r_inport, "out": r_outport})
-                t_flows[src].append({"in": r_inport, "out": r_outport})
+                self.flows[src]["b"] = {"in": r_inport, "out": r_outport}
+                t_flows[src]["b"] = {"in": r_inport, "out": r_outport}
 
             inport = self.links_dict[lx]['fibers'][f]["dst_port"]
             if bidir:
                 r_outport = self.links_dict[lx]['fibers'][f]["remote_peer_port"]
-        self.flows[dst] = []
-        t_flows[dst] = []
-        self.flows[dst].append({"in": inport, "out": 0})
-        t_flows[dst].append({"in": inport, "out": 0})
+        self.flows[dst] = {}
+        t_flows[dst] = {}
+        self.flows[dst]["f"] = {}
+        t_flows[dst]["f"] = {}
+        self.flows[dst]["b"] = {}
+        t_flows[dst]["b"] = {}
+        self.flows[dst]["f"] = {"in": inport, "out": "0"}
+        t_flows[dst]["f"] = {"in": inport, "out": "0"}
         if bidir:
-            self.flows[dst].append({"in": 0, "out": r_outport})
-            t_flows[dst].append({"in": 0, "out": r_outport})
+            self.flows[dst]["b"] = {"in": "0", "out": r_outport}
+            t_flows[dst]["b"] = {"in": "0", "out": r_outport}
 
         if debug:
             print(self.links_dict)

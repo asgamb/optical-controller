@@ -10,6 +10,7 @@ Nc = 320
 Ns = 720
 
 nodes_json = 'json_files/nodes.json'
-topology_json = 'json_files/topology-optical2.json'
+#topology_json = 'json_files/topology-optical2.json'
+topology_json = 'json_files/optical_topoTFS.json'
 
 testing = 1
