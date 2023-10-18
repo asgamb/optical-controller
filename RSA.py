@@ -347,8 +347,20 @@ class RSA():
 
         return t_flows, band, slots, fibers_f, fibers_b
 
-    def rsa_computation(self, links, rate, bidir):
-        path_len = 0
+    def rsa_computation(self, src, dst, rate, bidir):
+        self.flow_id += 1
+        self.db_flows[self.flow_id] = {}
+        self.db_flows[self.flow_id]["flow_id"] = self.flow_id
+        self.db_flows[self.flow_id]["src"] = src
+        self.db_flows[self.flow_id]["dst"] = dst
+        self.db_flows[self.flow_id]["bitrate"] = rate
+        self.db_flows[self.flow_id]["bidir"] = bidir
+
+        links, path = self.compute_path(src, dst)
+        op = 1
+        if len(path) < 1:
+            self.null_values(self.flow_id)
+            return self.flow_id
         op, num_slots = map_rate_to_slot(rate)
         c_slots, l_slots, s_slots = self.get_slots(links, num_slots)
         if debug:
@@ -361,9 +373,27 @@ class RSA():
             if debug:
                 print(f0, band)
             print("INFO: RSA completed")
-
-            return flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
-        return None, "", [], {}, {}, 0, 0, 0, 0
+            if flow_list is None:
+                self.null_values(self.flow_id)
+                return self.flow_id
+            slots_i = []
+            for i in slots:
+                slots_i.append(int(i))
+            # return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
+            #        links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band
+            self.db_flows[self.flow_id]["flows"] = flow_list
+            self.db_flows[self.flow_id]["band_type"] = band_range
+            self.db_flows[self.flow_id]["slots"] = slots_i
+            self.db_flows[self.flow_id]["fiber_forward"] = fiber_f
+            self.db_flows[self.flow_id]["fiber_backward"] = fiber_b
+            self.db_flows[self.flow_id]["op-mode"] = op
+            self.db_flows[self.flow_id]["n_slots"] = num_slots
+            self.db_flows[self.flow_id]["links"] = links
+            self.db_flows[self.flow_id]["path"] = path
+            self.db_flows[self.flow_id]["band"] = band
+            self.db_flows[self.flow_id]["freq"] = f0
+            self.db_flows[self.flow_id]["is_active"] = True
+        return self.flow_id
 
     '''
     def get_existing_optical_bands(self, path):
@@ -389,14 +419,46 @@ class RSA():
                 return 0
     '''
 
-
+    def null_values(self, flow_id):
+        self.db_flows[flow_id]["flows"] = {}
+        self.db_flows[flow_id]["band_type"] = ""
+        self.db_flows[flow_id]["slots"] = []
+        self.db_flows[flow_id]["fiber_forward"] = []
+        self.db_flows[flow_id]["fiber_backward"] = []
+        self.db_flows[flow_id]["op-mode"] = 0
+        self.db_flows[flow_id]["n_slots"] = 0
+        self.db_flows[flow_id]["links"] = {}
+        self.db_flows[flow_id]["path"] = []
+        self.db_flows[flow_id]["band"] = 0
+        self.db_flows[flow_id]["freq"] = 0
+        self.db_flows[flow_id]["is_active"] = False
 
     def rsa_fs_computation(self, src, dst, rate, bidir):
+        self.flow_id += 1
+        self.db_flows[self.flow_id] = {}
+        self.db_flows[self.flow_id]["flow_id"] = self.flow_id
+        self.db_flows[self.flow_id]["src"] = src
+        self.db_flows[self.flow_id]["dst"] = dst
+        self.db_flows[self.flow_id]["bitrate"] = rate
+        self.db_flows[self.flow_id]["bidir"] = bidir
+
         links, path = self.compute_path(src, dst)
         op = 1
         if len(path) < 1:
-            return [], [], None, "", [], {}, {}, 0, 0, 0, 0
+            self.null_values(self.flow_id)
+            return self.flow_id
+        temp_links = []
         num_slots = "all"
+        src_1, dst_1 = links[0].split('-')
+        src_2, dst_2 = links[-1].split('-')
+        if self.nodes_dict[src_1]["type"] == "OC-TP":
+            add_link = links[0]
+            temp_links.append(add_link)
+        if self.nodes_dict[dst_2]["type"] == "OC-TP":
+            drop_link = links[-1]
+        links.remove(add_link)
+        links.remove(drop_link)
+
         c_slots, l_slots, s_slots = self.get_slots(links, num_slots)
         if debug:
             print(c_slots)
@@ -408,6 +470,24 @@ class RSA():
             if debug:
                 print(f0, band)
             print("INFO: RSA completed")
-
-            return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
-        return [], [], None, "", [], {}, {}, 0, 0, 0, 0
+            if flow_list is None:
+                self.null_values(self.flow_id)
+                return self.flow_id
+            slots_i = []
+            for i in slots:
+                slots_i.append(int(i))
+            #return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
+            #        links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band
+            self.db_flows[self.flow_id]["flows"] = flow_list
+            self.db_flows[self.flow_id]["band_type"] = band_range
+            self.db_flows[self.flow_id]["slots"] = slots_i
+            self.db_flows[self.flow_id]["fiber_forward"] = fiber_f
+            self.db_flows[self.flow_id]["fiber_backward"] = fiber_b
+            self.db_flows[self.flow_id]["op-mode"] = op
+            self.db_flows[self.flow_id]["n_slots"] = num_slots
+            self.db_flows[self.flow_id]["links"] = links
+            self.db_flows[self.flow_id]["path"] = path
+            self.db_flows[self.flow_id]["band"] = band
+            self.db_flows[self.flow_id]["freq"] = f0
+            self.db_flows[self.flow_id]["is_active"] = True
+        return self.flow_id

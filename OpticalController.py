@@ -30,59 +30,17 @@ def index():
 class AddLightpath(Resource):
     @staticmethod
     def put(src, dst, bitrate, bidir=1):
-        rsa.flow_id += 1
-        print("INFO: New request with id {}, from {} to {} with rate {} ".format(rsa.flow_id, src, dst, bitrate))
-        rsa.db_flows[rsa.flow_id] = {}
-        rsa.db_flows[rsa.flow_id]["flow_id"] = rsa.flow_id
-        rsa.db_flows[rsa.flow_id]["src"] = src
-        rsa.db_flows[rsa.flow_id]["dst"] = dst
-        rsa.db_flows[rsa.flow_id]["bitrate"] = bitrate
-        rsa.db_flows[rsa.flow_id]["bidir"] = bidir
+        print("INFO: New request from {} to {} with rate {} ".format(src, dst, bitrate))
         if debug:
             rsa.g.printGraph()
 
-        links, path = rsa.compute_path(src, dst)
-        print(links, path)
-        if len(path) < 1:
-            print("here")
-            return 'Error', 404
         if rsa is not None:
-            flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_computation(links, bitrate, bidir)
+            #flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_computation(links, bitrate, bidir)
+            flow_id = rsa.rsa_computation(src, dst, bitrate, bidir)
 
-            print(flows, slots)
-            if flows is None:
-                rsa.db_flows[rsa.flow_id]["flows"] = {}
-                rsa.db_flows[rsa.flow_id]["band_type"] = ""
-                rsa.db_flows[rsa.flow_id]["slots"] = []
-                rsa.db_flows[rsa.flow_id]["fiber_forward"] = []
-                rsa.db_flows[rsa.flow_id]["fiber_backward"] = []
-                rsa.db_flows[rsa.flow_id]["op-mode"] = 0
-                rsa.db_flows[rsa.flow_id]["n_slots"] = 0
-                rsa.db_flows[rsa.flow_id]["links"] = {}
-                rsa.db_flows[rsa.flow_id]["path"] = []
-                rsa.db_flows[rsa.flow_id]["band"] = 0
-                rsa.db_flows[rsa.flow_id]["freq"] = 0
-
-                rsa.db_flows[rsa.flow_id]["is_active"] = False
+            if rsa.db_flows[flow_id]["op-mode"] == 0:
                 return 'No path found', 404
-            slots_i = []
-            for i in slots:
-                slots_i.append(int(i))
-
-            rsa.db_flows[rsa.flow_id]["flows"] = flows
-            rsa.db_flows[rsa.flow_id]["band_type"] = bx
-            rsa.db_flows[rsa.flow_id]["slots"] = slots_i
-            rsa.db_flows[rsa.flow_id]["fiber_forward"] = fiber_f
-            rsa.db_flows[rsa.flow_id]["fiber_backward"] = fiber_b
-            rsa.db_flows[rsa.flow_id]["op-mode"] = op
-            rsa.db_flows[rsa.flow_id]["n_slots"] = n_slots
-            rsa.db_flows[rsa.flow_id]["links"] = links
-            rsa.db_flows[rsa.flow_id]["path"] = path
-            rsa.db_flows[rsa.flow_id]["band"] = band
-            rsa.db_flows[rsa.flow_id]["freq"] = f0
-            rsa.db_flows[rsa.flow_id]["is_active"] = True
-
-            return rsa.db_flows[rsa.flow_id], 200
+            return rsa.db_flows[flow_id], 200
         else:
             return "Error", 404
 
@@ -94,14 +52,8 @@ class AddLightpath(Resource):
 class AddFlexLightpath(Resource):
     @staticmethod
     def put(src, dst, bitrate, bidir=1):
-        rsa.flow_id += 1
-        print("INFO: New request with id {}, from {} to {} with rate {} ".format(rsa.flow_id, src, dst, bitrate))
-        rsa.db_flows[rsa.flow_id] = {}
-        rsa.db_flows[rsa.flow_id]["flow_id"] = rsa.flow_id
-        rsa.db_flows[rsa.flow_id]["src"] = src
-        rsa.db_flows[rsa.flow_id]["dst"] = dst
-        rsa.db_flows[rsa.flow_id]["bitrate"] = bitrate
-        rsa.db_flows[rsa.flow_id]["bidir"] = bidir
+
+        print("INFO: New request from {} to {} with rate {} ".format(src, dst, bitrate))
         if debug:
             rsa.g.printGraph()
 
@@ -111,42 +63,13 @@ class AddFlexLightpath(Resource):
         #    print("here")
         #    return 'Error', 404
         if rsa is not None:
-            links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
+            #links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
+            flow_id = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
 
-            print(flows, slots)
-            if flows is None:
-                rsa.db_flows[rsa.flow_id]["flows"] = {}
-                rsa.db_flows[rsa.flow_id]["band_type"] = ""
-                rsa.db_flows[rsa.flow_id]["slots"] = []
-                rsa.db_flows[rsa.flow_id]["fiber_forward"] = []
-                rsa.db_flows[rsa.flow_id]["fiber_backward"] = []
-                rsa.db_flows[rsa.flow_id]["op-mode"] = 0
-                rsa.db_flows[rsa.flow_id]["n_slots"] = 0
-                rsa.db_flows[rsa.flow_id]["links"] = {}
-                rsa.db_flows[rsa.flow_id]["path"] = []
-                rsa.db_flows[rsa.flow_id]["band"] = 0
-                rsa.db_flows[rsa.flow_id]["freq"] = 0
-
-                rsa.db_flows[rsa.flow_id]["is_active"] = False
+            if rsa.db_flows[flow_id]["op-mode"] == 0:
                 return 'No path found', 404
-            slots_i = []
-            for i in slots:
-                slots_i.append(int(i))
 
-            rsa.db_flows[rsa.flow_id]["flows"] = flows
-            rsa.db_flows[rsa.flow_id]["band_type"] = bx
-            rsa.db_flows[rsa.flow_id]["slots"] = slots_i
-            rsa.db_flows[rsa.flow_id]["fiber_forward"] = fiber_f
-            rsa.db_flows[rsa.flow_id]["fiber_backward"] = fiber_b
-            rsa.db_flows[rsa.flow_id]["op-mode"] = op
-            rsa.db_flows[rsa.flow_id]["n_slots"] = n_slots
-            rsa.db_flows[rsa.flow_id]["links"] = links
-            rsa.db_flows[rsa.flow_id]["path"] = path
-            rsa.db_flows[rsa.flow_id]["band"] = band
-            rsa.db_flows[rsa.flow_id]["freq"] = f0
-            rsa.db_flows[rsa.flow_id]["is_active"] = True
-
-            return rsa.db_flows[rsa.flow_id], 200
+            return rsa.db_flows[flow_id], 200
         else:
             return "Error", 404
 
