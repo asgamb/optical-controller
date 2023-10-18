@@ -119,13 +119,21 @@ def readTopologyData(nodes, topology):
         return nodes, topo
 
 
-def slot_selection(c, l, s, n_slots):
+def slot_selection(c, l, s, n_slots, Nc, Nl, Ns):
     # First Fit
-    if len(c) >= n_slots:
-        return "c_slots", c[0: n_slots]
-    elif len(l) >= n_slots:
-        return "l_slots", l[0: n_slots]
-    elif len(l) >= n_slots:
-        return "s_slots", s[0: n_slots]
+    if isinstance(n_slots, int):
+        slot_c = n_slots
+        slot_l = n_slots
+        slot_s = n_slots
+    else:
+        slot_c = Nc
+        slot_l = Nl
+        slot_s = Ns
+    if len(c) >= slot_c:
+        return "c_slots", c[0: slot_c]
+    elif len(l) >= slot_l:
+        return "l_slots", l[0: slot_l]
+    elif len(l) >= slot_s:
+        return "s_slots", s[0: slot_s]
     else:
         return None, None

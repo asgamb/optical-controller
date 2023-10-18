@@ -13,6 +13,34 @@ class RSA():
         self.flow_id = 0
         self.db_flows = {}
         self.initGraph()
+        self.c_slot_number = 0
+        self.l_slot_number = 0
+        self.s_slot_number = 0
+        self.optical_bands = {}
+
+    def init_link_slots(self, testing):
+        if not testing:
+            for l in self.links_dict:
+                for f in self.links_dict[l]["fibers"]:
+                    fib = self.links_dict[l]["fibers"][f]
+                    if len(fib["c_slots"]) > 0:
+                        fib["c_slots"] = list(range(0, Nc))
+                    if len(fib["l_slots"]) > 0:
+                        fib["l_slots"] = list(range(0, Nl))
+                    if len(fib["s_slots"]) > 0:
+                        fib["s_slots"] = list(range(0, Ns))
+                if debug:
+                    print(fib)
+        for l1 in self.links_dict:
+            for f1 in self.links_dict[l1]["fibers"]:
+                fib1 = self.links_dict[l1]["fibers"][f1]
+                self.c_slot_number = len(fib1["c_slots"])
+                self.l_slot_number = len(fib1["l_slots"])
+                self.s_slot_number = len(fib1["s_slots"])
+
+                break
+            break
+        return "{},{},{}".format(self.c_slot_number, self.l_slot_number, self.s_slot_number)
 
     def initGraph(self):
         self.g = dijsktra.Graph()
@@ -49,16 +77,33 @@ class RSA():
         self.g.reset_graph()
         return links, path
 
-    def get_slots(self, links, val):
+    def get_slots(self, links, slots):
+
+        if isinstance(slots, int):
+            val_c = slots
+            val_s = slots
+            val_l = slots
+        else:
+            val_c = self.c_slot_number
+            val_l = self.l_slot_number
+            val_s = self.s_slot_number
+
         c_sts = []
         l_sts = []
         s_sts = []
         c_slots = {}
         l_slots = {}
         s_slots = {}
-
-        add = links[0]
-        drop = links[-1]
+        connection_type = "ROADM"
+        add = ""
+        drop = ""
+        src_1, dst_1 = links[0].split('-')
+        src_2, dst_2 = links[-1].split('-')
+        if self.nodes_dict[src_1]["type"] == "OC-TP":
+            add = links[0]
+            connection_type = "TP"
+        if self.nodes_dict[dst_2]["type"] == "OC-TP":
+            drop = links[-1]
 
         for l in links:
             c_slots[l] = []
@@ -80,44 +125,51 @@ class RSA():
                             print("EROOR: link {}, fiber {} is already in use".format(l, f))
                             continue
                 if len(fib["c_slots"])> 0:
-                    c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val))
+                    c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val_c))
                 if len(fib["l_slots"]) > 0:
-                    l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val))
+                    l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val_l))
                 if len(fib["s_slots"]) > 0:
-                    s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val))
+                    s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val_s))
                 if debug:
                     print(l, c_slots[l])
                 found = 1
             if found == 0:
                 return [], [], []
         if debug:
-            print(c_slots)
+            print("aaa {}".format(c_slots))
         keys = list(c_slots.keys())
         if debug:
             print(len(keys))
         if debug:
             print(keys[0])
         # intersection among the slots over all links
-        for i in range(1, len(keys)):
-            if debug:
-                print(keys[i])
-            # set a for the intersection
-            if i == 1:
-                a_c = c_slots[keys[i - 1]]
-                a_l = l_slots[keys[i - 1]]
-                a_s = s_slots[keys[i - 1]]
-            else:
-                a_c = c_sts
-                a_l = l_sts
-                a_s = s_sts
-            # set b for the intersection
-            b_c = c_slots[keys[i]]
-            b_l = l_slots[keys[i]]
-            b_s = s_slots[keys[i]]
+        if len(keys) == 1:
+            c_sts = c_slots[keys[0]]
+            l_sts = l_slots[keys[0]]
+            s_sts = s_slots[keys[0]]
+        else:
+            for i in range(1, len(keys)):
+                if debug:
+                    print(keys[i])
+                # set a for the intersection
+                if i == 1:
+                    a_c = c_slots[keys[i - 1]]
+                    a_l = l_slots[keys[i - 1]]
+                    a_s = s_slots[keys[i - 1]]
+                else:
+                    a_c = c_sts
+                    a_l = l_sts
+                    a_s = s_sts
+                # set b for the intersection
+                b_c = c_slots[keys[i]]
+                b_l = l_slots[keys[i]]
+                b_s = s_slots[keys[i]]
 
-            c_sts = common_slots(a_c, b_c)
-            l_sts = common_slots(a_l, b_l)
-            s_sts = common_slots(a_s, b_s)
+                c_sts = common_slots(a_c, b_c)
+                l_sts = common_slots(a_l, b_l)
+                s_sts = common_slots(a_s, b_s)
+        print("{}, {}, {}".format(c_sts, l_sts, s_sts))
+
         return c_sts, l_sts, s_sts
 
     def update_link(self, fib, slots, band):
@@ -172,18 +224,7 @@ class RSA():
                         print(rfib[band])
         return True
 
-    def init_link_slots(self):
-        for l in self.links_dict:
-            for f in self.links_dict[l]["fibers"]:
-                fib = self.links_dict[l]["fibers"][f]
-                if len(fib["c_slots"]) > 0:
-                    fib["c_slots"] = list(range(0, Nc))
-                if len(fib["l_slots"]) > 0:
-                    fib["l_slots"] = list(range(0, Nl))
-                if len(fib["s_slots"]) > 0:
-                    fib["s_slots"] = list(range(0, Ns))
-            if debug:
-                print(fib)
+
 
     def get_fibers_forward(self, links, slots, band):
         fiber_list = {}
@@ -235,7 +276,7 @@ class RSA():
     def select_slots_and_ports(self, links, n_slots, c, l, s, bidir):
         if debug:
             print(self.links_dict)
-        band, slots = slot_selection(c, l, s, n_slots)
+        band, slots = slot_selection(c, l, s, n_slots, self.c_slot_number, self.l_slot_number, self.s_slot_number)
         if band is None:
             print("No slots available in the three bands")
             return None, None, None
@@ -323,3 +364,50 @@ class RSA():
 
             return flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
         return None, "", [], {}, {}, 0, 0, 0, 0
+
+    '''
+    def get_existing_optical_bands(self, path):
+        source = path[0]
+        dest = path[-1]
+        if self.nodes_dict[source]["type"] == "OC-TP":
+            band_in = path[1]
+        else:
+            band_in = path[0]
+        if self.nodes_dict[dest]["type"] == "OC-TP":
+            band_out = path[-2]
+        else:
+            band_out = path[-1]
+        if band_in == band_out:
+            connection_type = "single-roadm"
+
+        key_pair = "{}-{}".format(band_in, band_out)
+        for ob in self.optical_bands:
+            try:
+                if self.optical_bands[ob]["pair"] == key_pair:
+                    #TOBE CONTINUED
+            except:
+                return 0
+    '''
+
+
+
+    def rsa_fs_computation(self, src, dst, rate, bidir):
+        links, path = self.compute_path(src, dst)
+        op = 1
+        if len(path) < 1:
+            return [], [], None, "", [], {}, {}, 0, 0, 0, 0
+        num_slots = "all"
+        c_slots, l_slots, s_slots = self.get_slots(links, num_slots)
+        if debug:
+            print(c_slots)
+            print(l_slots)
+            print(s_slots)
+        if len(c_slots) > 0 or len(l_slots) > 0 or len(s_slots) > 0:
+            flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots, bidir)
+            f0, band = freqency_converter(band_range, slots)
+            if debug:
+                print(f0, band)
+            print("INFO: RSA completed")
+
+            return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
+        return [], [], None, "", [], {}, {}, 0, 0, 0, 0
