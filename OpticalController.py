@@ -35,9 +35,7 @@ class AddLightpath(Resource):
             rsa.g.printGraph()
 
         if rsa is not None:
-            #flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_computation(links, bitrate, bidir)
             flow_id = rsa.rsa_computation(src, dst, bitrate, bidir)
-
             if rsa.db_flows[flow_id]["op-mode"] == 0:
                 return 'No path found', 404
             return rsa.db_flows[flow_id], 200
@@ -45,8 +43,8 @@ class AddLightpath(Resource):
             return "Error", 404
 
 
-@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>/<int:bidir>')
 #@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>')
+@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>/<int:bidir>')
 @optical.response(200, 'Success')
 @optical.response(404, 'Error, not found')
 class AddFlexLightpath(Resource):
@@ -57,19 +55,17 @@ class AddFlexLightpath(Resource):
         if debug:
             rsa.g.printGraph()
 
-        #links, path = rsa.compute_path()
-        #print(links, path)
-        #if len(path) < 1:
-        #    print("here")
-        #    return 'Error', 404
         if rsa is not None:
-            #links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
-            flow_id = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
-
-            if rsa.db_flows[flow_id]["op-mode"] == 0:
-                return 'No path found', 404
-
-            return rsa.db_flows[flow_id], 200
+            flow_id, optical_band_id = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
+            if flow_id is not None:
+                if rsa.db_flows[flow_id]["op-mode"] == 0:
+                    return 'No path found', 404
+                return rsa.db_flows[flow_id], 200
+            else:
+                if len(rsa.optical_bands[optical_band_id]["flows"]) == 0:
+                    return 'No path found', 404
+                else:
+                    return rsa.optical_bands[optical_band_id], 200
         else:
             return "Error", 404
 
@@ -108,6 +104,20 @@ class GetFlows(Resource):
             return rsa.db_flows, 200
         except:
             return "Error", 404
+
+@optical.route('/GetOpticalBands')
+@optical.response(200, 'Success')
+@optical.response(404, 'Error, not found')
+class GetBands(Resource):
+    @staticmethod
+    def get():
+        try:
+            if debug:
+                print(rsa.optical_bands)
+            return rsa.optical_bands, 200
+        except:
+            return "Error", 404
+
 
 
 @optical.route('/GetLinks')

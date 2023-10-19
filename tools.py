@@ -118,6 +118,20 @@ def readTopologyData(nodes, topology):
         topo_file.close()
         return nodes, topo
 
+def get_links_form_node(topology, node):
+    result = {}
+    for link in topology.keys():
+        if "{}-".format(node) in link:
+            result[link] = topology[link]
+    return result
+
+def get_links_to_node(topology, node):
+    result = {}
+    for link in topology.keys():
+        if "-{}".format(node) in link:
+            result[link] = topology[link]
+    return result
+
 
 def slot_selection(c, l, s, n_slots, Nc, Nl, Ns):
     # First Fit
