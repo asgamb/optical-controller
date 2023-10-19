@@ -12,6 +12,8 @@ def map_modulation_to_op(mod):
         return 1
     if mod == "DP-16QAM":
         return 7
+    if mod == "DP-64QAM":
+        return 10
 
 
 def map_rate_to_slot(rate):
@@ -23,6 +25,11 @@ def map_rate_to_slot(rate):
     if rate == 400:
         mod = "DP-16QAM"
         slots = 8
+        op = map_modulation_to_op(mod)
+        return op, slots
+    if rate == 1000:
+        mod = "DP-64QAM"
+        slots = 18
         op = map_modulation_to_op(mod)
         return op, slots
     else:
@@ -117,6 +124,16 @@ def readTopologyData(nodes, topology):
         nodes_file.close()
         topo_file.close()
         return nodes, topo
+
+
+def reverse_links(links):
+    temp_links = links.copy()
+    temp_links.reverse()
+    result = []
+    for link in temp_links:
+        [a, b] = link.split("-")
+        result.append("{}-{}".format(b, a))
+    return result
 
 def get_links_form_node(topology, node):
     result = {}

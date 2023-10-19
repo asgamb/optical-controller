@@ -1,4 +1,4 @@
-debug = 1
+debug = 0
 
 Fl = 184800
 Fc = 192000
@@ -10,7 +10,7 @@ Nc = 320
 Ns = 720
 
 nodes_json = 'json_files/nodes.json'
-#topology_json = 'json_files/topology-optical2.json'
-topology_json = 'json_files/optical_topoTFS.json'
+#topology_json = 'json_files/optical_topoTFS.json'
+topology_json = 'json_files/topo_2_links.json'
 
 testing = 1

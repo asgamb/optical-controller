@@ -4,7 +4,7 @@ from flask_restplus import Resource, Api
 from tools import *
 from variables import *
 from RSA import RSA
-
+import time
 import time
 
 rsa = None
@@ -30,7 +30,9 @@ def index():
 class AddLightpath(Resource):
     @staticmethod
     def put(src, dst, bitrate, bidir=1):
-        print("INFO: New request from {} to {} with rate {} ".format(src, dst, bitrate))
+
+        print("INFO: New Lightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
+        t0 = time.time()*1000.0
         if debug:
             rsa.g.printGraph()
 
@@ -38,6 +40,9 @@ class AddLightpath(Resource):
             flow_id = rsa.rsa_computation(src, dst, bitrate, bidir)
             if rsa.db_flows[flow_id]["op-mode"] == 0:
                 return 'No path found', 404
+            t1 = time.time()*1000.0
+            elapsed = t1 - t0
+            print("INFO: time elapsed = {} ms".format(elapsed))
             return rsa.db_flows[flow_id], 200
         else:
             return "Error", 404
@@ -51,7 +56,8 @@ class AddFlexLightpath(Resource):
     @staticmethod
     def put(src, dst, bitrate, bidir=1):
 
-        print("INFO: New request from {} to {} with rate {} ".format(src, dst, bitrate))
+        print("INFO: New FlexLightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
+        t0 = time.time()*1000.0
         if debug:
             rsa.g.printGraph()
 
@@ -60,14 +66,63 @@ class AddFlexLightpath(Resource):
             if flow_id is not None:
                 if rsa.db_flows[flow_id]["op-mode"] == 0:
                     return 'No path found', 404
+                t1 = time.time() * 1000.0
+                elapsed = t1 - t0
+                print("INFO: time elapsed = {} ms".format(elapsed))
+
                 return rsa.db_flows[flow_id], 200
             else:
                 if len(rsa.optical_bands[optical_band_id]["flows"]) == 0:
                     return 'No path found', 404
                 else:
+                    t1 = time.time() * 1000.0
+                    elapsed = t1 - t0
+                    print("INFO: time elapsed = {} ms".format(elapsed))
+
                     return rsa.optical_bands[optical_band_id], 200
         else:
             return "Error", 404
+
+@optical.route('/DelFlexLightpath/<int:flow_id>/<string:src>/<string:dst>/<int:bitrate>/<int:o_band_id>')
+@optical.response(200, 'Success')
+@optical.response(404, 'Error, not found')
+class DelLightpath(Resource):
+    @staticmethod
+    def delete(flow_id, src, dst, bitrate, o_band_id):
+        if flow_id in rsa.db_flows.keys():
+            flow = rsa.db_flows[flow_id]
+            bidir = flow["bidir"]
+            match1 = flow["src"] == src and flow["dst"] == dst and flow["bitrate"] == bitrate
+            if bidir:
+                match2 = flow["src"] == dst and flow["dst"] == src and flow["bitrate"] == bitrate
+                if match1 or match2:
+                    ob_id = flow["parent_opt_band"]
+                    rsa.del_flow(flow, ob_id)
+                    rsa.db_flows[flow_id]["is_active"] = False
+                    rsa.optical_bands[ob_id]["served_lightpaths"].remove(flow_id)
+                    if rsa.optical_bands[ob_id]["reverse_optical_band_id"] != 0:
+                        rev_ob_id = rsa.optical_bands[ob_id]["reverse_optical_band_id"]
+                        rsa.optical_bands[rev_ob_id]["served_lightpaths"].remove(flow_id)
+
+                    if debug:
+                        print(links_dict)
+                    return "flow {} deleted".format(flow_id), 200
+                else:
+                    return "flow {} not matching".format(flow_id), 404
+            else:
+                if match1:
+                    ob_id = flow["parent_opt_band"]
+                    rsa.del_flow(flow, ob_id)
+                    rsa.db_flows[flow_id]["is_active"] = False
+                    rsa.optical_bands[ob_id]["served_lightpaths"].remove(flow_id)
+                    if debug:
+                        print(links_dict)
+                    return "flow {} deleted".format(flow_id), 200
+                else:
+                    return "flow {} not matching".format(flow_id), 404
+        else:
+            return "flow id {} does not exist".format(flow_id), 404
+
 
 
 @optical.route('/DelLightpath/<int:flow_id>/<string:src>/<string:dst>/<int:bitrate>')
