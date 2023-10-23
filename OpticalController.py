@@ -174,6 +174,19 @@ class GetBands(Resource):
             return "Error", 404
 
 
+@optical.route('/GetOpticalBand/<string:ob_id>')
+@optical.response(200, 'Success')
+@optical.response(404, 'Error, not found')
+class GetBand(Resource):
+    @staticmethod
+    def get(ob_id):
+        for ob_idx in rsa.optical_bands.keys():
+            if str(ob_idx) == str(ob_id):
+                if debug:
+                    print(rsa.optical_bands[ob_id])
+                return rsa.optical_bands[ob_idx], 200
+        return {}, 404
+
 
 @optical.route('/GetLinks')
 @optical.response(200, 'Success')

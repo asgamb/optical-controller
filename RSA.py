@@ -747,12 +747,11 @@ class RSA():
                         self.db_flows[self.flow_id]["freq"] = f0
                         self.db_flows[self.flow_id]["is_active"] = True
                         self.db_flows[self.flow_id]["parent_opt_band"] = ob_id
+                        self.db_flows[self.flow_id]["new_optical_band"] = False
                         self.optical_bands[ob_id]["served_lightpaths"].append(self.flow_id)
                         if bidir:
                             rev_ob_id = self.optical_bands[ob_id]["reverse_optical_band_id"]
                             self.optical_bands[rev_ob_id]["served_lightpaths"].append(self.flow_id)
-
-
                         return self.flow_id, ob_id
                     else:
                         print("not enough slots")
@@ -795,10 +794,9 @@ class RSA():
             self.db_flows[self.flow_id]["freq"] = f0
             self.db_flows[self.flow_id]["is_active"] = True
             self.db_flows[self.flow_id]["parent_opt_band"] = optical_band_id
+            self.db_flows[self.flow_id]["new_optical_band"] = True
             self.optical_bands[optical_band_id]["served_lightpaths"].append(self.flow_id)
             if bidir:
                 rev_ob_id = self.optical_bands[optical_band_id]["reverse_optical_band_id"]
                 self.optical_bands[rev_ob_id]["served_lightpaths"].append(self.flow_id)
-
-
         return self.flow_id, optical_band_id
