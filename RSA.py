@@ -388,9 +388,11 @@ class RSA():
         fibers_b = []
         if bidir:
             fibers_b = self.get_fibers_backward(links, fibers_f, slots, band)
+        '''
 
             rev_o_band_id = self.optical_bands[o_band_id]["reverse_optical_band_id"]
             self.update_optical_band(rev_o_band_id, slots, band)
+        '''
         if debug:
             print("forward")
             print(fibers_f)
@@ -423,8 +425,12 @@ class RSA():
         inport = self.links_dict[add]['fibers'][f]["dst_port"]
         opt_band_src_port = self.optical_bands[o_band_id]["src_port"]
         t_flows[dst]["f"] = {"in": inport, "out": opt_band_src_port}
+        #to modify to peer ports
         if bidir:
-            rev_opt_band_dst_port = self.optical_bands[rev_o_band_id]["dst_port"]
+            r_inport = self.links_dict[add]['fibers'][f]["local_peer_port"]
+            t_flows[src]["b"] = {"in": r_inport, "out": port_0}
+        if bidir:
+            rev_opt_band_dst_port = self.optical_bands[o_band_id]["rev_dst_port"]
             r_outport = self.links_dict[add]['fibers'][f]["remote_peer_port"]
             t_flows[dst]["b"] = {"in": rev_opt_band_dst_port, "out": r_outport}
 
@@ -439,7 +445,7 @@ class RSA():
         opt_band_dst_port = self.optical_bands[o_band_id]["dst_port"]
         t_flows[src]["f"] = {"in": opt_band_dst_port, "out": outport}
         if bidir:
-            rev_opt_band_src_port = self.optical_bands[rev_o_band_id]["src_port"]
+            rev_opt_band_src_port = self.optical_bands[o_band_id]["rev_src_port"]
             r_inport = self.links_dict[drop]['fibers'][f]["local_peer_port"]
             t_flows[src]["b"] = {"in": r_inport, "out": rev_opt_band_src_port}
         t_flows[dst] = {}
@@ -456,7 +462,7 @@ class RSA():
 
         if debug:
             print(t_flows)
-        print("INFO: Flow matrix computed for Flax Lightpath")
+        print("INFO: Flow matrix computed for Flex Lightpath")
 
         return t_flows, band, slots, fibers_f, fibers_b
 
@@ -470,7 +476,7 @@ class RSA():
         self.db_flows[self.flow_id]["bidir"] = bidir
 
         links, path = self.compute_path(src, dst)
-        op = 1
+
         if len(path) < 1:
             self.null_values(self.flow_id)
             return self.flow_id
@@ -481,7 +487,8 @@ class RSA():
             print(l_slots)
             print(s_slots)
         if len(c_slots) > 0 or len(l_slots) > 0 or len(s_slots) > 0:
-            flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots, bidir)
+            flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports(links, num_slots, c_slots,
+                                                                                         l_slots, s_slots, bidir)
             f0, band = freqency_converter(band_range, slots)
             if debug:
                 print(f0, band)
@@ -538,13 +545,19 @@ class RSA():
         self.optical_bands[ob_id]["s_slots"] = []
         self.optical_bands[ob_id]["served_lightpaths"] = []
         self.optical_bands[ob_id]["reverse_optical_band_id"] = 0
+        self.db_flows[self.flow_id]["parent_opt_band"] = 0
+        self.db_flows[self.flow_id]["new_optical_band"] = 0
 
-    def create_optical_band(self, links, path, src, dst, bidir):
+    def create_optical_band(self, links, path, bidir, num_slots):
+        print("INFO: Creating optical-band of {} slots".format(num_slots))
         self.opt_band_id += 1
         forw_opt_band_id = self.opt_band_id
+        if bidir:
+            self.opt_band_id += 1
         self.optical_bands[forw_opt_band_id] = {}
         self.optical_bands[forw_opt_band_id]["optical_band_id"] = forw_opt_band_id
         self.optical_bands[forw_opt_band_id]["bidir"] = bidir
+        '''
         back_opt_band_id = 0
         if bidir:
             self.opt_band_id += 1
@@ -556,26 +569,30 @@ class RSA():
             self.optical_bands[forw_opt_band_id]["reverse_optical_band_id"] = back_opt_band_id
         else:
             self.optical_bands[forw_opt_band_id]["reverse_optical_band_id"] = 0
+        '''
         op = 0
         temp_links = []
-        num_slots = "all"
+        #num_slots = "all"
         if self.nodes_dict[path[0]]["type"] == "OC-TP":
             add_link = links[0]
             temp_links.append(add_link)
             links.remove(add_link)
             path.remove(path[0])
         self.optical_bands[forw_opt_band_id]["src"] = path[0]
+        '''
         if bidir:
             self.optical_bands[back_opt_band_id]["dst"] = path[0]
-
+        '''
         if self.nodes_dict[path[-1]]["type"] == "OC-TP":
             drop_link = links[-1]
             temp_links.append(drop_link)
             links.remove(drop_link)
             path.remove(path[-1])
         self.optical_bands[forw_opt_band_id]["dst"] = path[-1]
+        '''
         if bidir:
             self.optical_bands[back_opt_band_id]["src"] = path[-1]
+        '''
 
         c_slots, l_slots, s_slots = self.get_slots(links, num_slots)
         if debug:
@@ -585,6 +602,8 @@ class RSA():
         if len(c_slots) > 0 or len(l_slots) > 0 or len(s_slots) > 0:
             flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots, bidir)
             f0, band = freqency_converter(band_range, slots)
+            '''
+
             flow_list_b = {}
             rev_path = path.copy()
             rev_path.reverse()
@@ -595,6 +614,7 @@ class RSA():
                     flow_list_b[dev_x]["f"] = flow_list[dev_x]["b"]
                     del flow_list[dev_x]["b"]
                     rev_path = path.copy()
+            '''
             if debug:
                 print(f0, band)
             print("INFO: RSA completed for optical band")
@@ -625,7 +645,7 @@ class RSA():
             self.optical_bands[forw_opt_band_id]["flows"] = flow_list
             self.optical_bands[forw_opt_band_id]["band_type"] = band_range
             self.optical_bands[forw_opt_band_id]["fiber_forward"] = fiber_f
-            #self.optical_bands[forw_opt_band_id]["fiber_backward"] = fiber_b
+            self.optical_bands[forw_opt_band_id]["fiber_backward"] = fiber_b
             self.optical_bands[forw_opt_band_id]["op-mode"] = op
             self.optical_bands[forw_opt_band_id]["n_slots"] = num_slots
             self.optical_bands[forw_opt_band_id]["links"] = links
@@ -635,8 +655,11 @@ class RSA():
             self.optical_bands[forw_opt_band_id]["is_active"] = True
             self.optical_bands[forw_opt_band_id]["src_port"] = src_port
             self.optical_bands[forw_opt_band_id]["dst_port"] = dst_port
+            self.optical_bands[forw_opt_band_id]["rev_dst_port"] = rev_dst_port
+            self.optical_bands[forw_opt_band_id]["rev_src_port"] = rev_src_port
             self.optical_bands[forw_opt_band_id][band_range] = slots_i
             self.optical_bands[forw_opt_band_id]["served_lightpaths"] = []
+            '''
             if bidir:
                 self.optical_bands[back_opt_band_id]["flows"] = flow_list_b
                 self.optical_bands[back_opt_band_id]["band_type"] = band_range
@@ -653,6 +676,7 @@ class RSA():
                 self.optical_bands[back_opt_band_id]["dst_port"] = rev_dst_port
                 self.optical_bands[back_opt_band_id][band_range] = slots_i.copy()
                 self.optical_bands[back_opt_band_id]["served_lightpaths"] = []
+            '''
 
         return forw_opt_band_id, temp_links
 
@@ -668,98 +692,115 @@ class RSA():
                 result.append(ob_id)
         return result
 
-    def rsa_fs_computation(self, src, dst, rate, bidir):
+    def rsa_fs_computation(self, src, dst, rate, bidir, band):
+        num_slots_ob = "full_band"
+        if band is not None:
+            num_slots_ob = map_band_to_slot(band)
+            print(band, num_slots_ob)
         if self.nodes_dict[src]["type"] == "OC-ROADM" and self.nodes_dict[dst]["type"] == "OC-ROADM":
             print("INFO: ROADM to ROADM connection")
             links, path = self.compute_path(src, dst)
             if len(path) < 1:
                 self.null_values_ob(self.opt_band_id)
                 return self.flow_id, []
-            optical_band_id, temp_links = self.create_optical_band(links, path, src, dst, bidir)
+            optical_band_id, temp_links = self.create_optical_band(links, path, bidir, num_slots_ob)
             return None, optical_band_id
         print("INFO: TP to TP connection")
-
-        #todo check with multiple links
-        #in case T1 is connected to R1 and R2
-        temp_links2 = []
-        temp_path = []
-        src_links = get_links_form_node(self.links_dict, src)
-        dst_links = get_links_to_node(self.links_dict, dst)
-        if len(src_links.keys()) >= 1:
-            temp_links2.append(list(src_links.keys())[0])
-        if len(src_links.keys()) >= 1:
-            temp_links2.append(list(dst_links.keys())[0])
-        if len(temp_links2) == 2:
-            [t_src, roadm_src] = temp_links2[0].split('-')
-            [roadm_dst, t_dst] = temp_links2[1].split('-')
-            temp_path.append(t_src)
-            temp_path.append(roadm_src)
-            temp_path.append(roadm_dst)
-            temp_path.append(t_dst)
-            existing_ob = self.get_optical_bands(roadm_src, roadm_dst)
-            self.flow_id += 1
-            self.db_flows[self.flow_id] = {}
-            self.db_flows[self.flow_id]["flow_id"] = self.flow_id
-            self.db_flows[self.flow_id]["src"] = src
-            self.db_flows[self.flow_id]["dst"] = dst
-            self.db_flows[self.flow_id]["bitrate"] = rate
-            self.db_flows[self.flow_id]["bidir"] = bidir
-            if len(existing_ob) > 0:
-                print("INFO: Evaluating existing OB  {}".format(existing_ob))
-                #first checking in existing OB
-                ob_found = 0
-                for ob_id in existing_ob:
-                    op, num_slots = map_rate_to_slot(rate)
-                    if debug:
-                        print(temp_links2)
-                    c_slots, l_slots, s_slots = self.get_slots(temp_links2, num_slots, ob_id)
-                    if debug:
-                        print(c_slots)
-                        print(l_slots)
-                        print(s_slots)
-                    if len(c_slots) >= num_slots or len(l_slots) >= num_slots or len(s_slots) >= num_slots:
-                        flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports_fs(temp_links2, num_slots,
-                                                                                                        c_slots,
-                                                                                                        l_slots, s_slots, bidir,
-                                                                                                        ob_id)
-                        f0, band = freqency_converter(band_range, slots)
+        if band is None:
+            #todo check with multiple links at transponder nodes
+            #in case T1 is connected to R1 and R2
+            temp_links2 = []
+            temp_path = []
+            src_links = get_links_form_node(self.links_dict, src)
+            dst_links = get_links_to_node(self.links_dict, dst)
+            if len(src_links.keys()) >= 1:
+                temp_links2.append(list(src_links.keys())[0])
+            if len(src_links.keys()) >= 1:
+                temp_links2.append(list(dst_links.keys())[0])
+            if len(temp_links2) == 2:
+                [t_src, roadm_src] = temp_links2[0].split('-')
+                [roadm_dst, t_dst] = temp_links2[1].split('-')
+                temp_path.append(t_src)
+                temp_path.append(roadm_src)
+                temp_path.append(roadm_dst)
+                temp_path.append(t_dst)
+                existing_ob = self.get_optical_bands(roadm_src, roadm_dst)
+                self.flow_id += 1
+                self.db_flows[self.flow_id] = {}
+                self.db_flows[self.flow_id]["flow_id"] = self.flow_id
+                self.db_flows[self.flow_id]["src"] = src
+                self.db_flows[self.flow_id]["dst"] = dst
+                self.db_flows[self.flow_id]["bitrate"] = rate
+                self.db_flows[self.flow_id]["bidir"] = bidir
+                if len(existing_ob) > 0:
+                    print("INFO: Evaluating existing OB  {}".format(existing_ob))
+                    #first checking in existing OB
+                    ob_found = 0
+                    for ob_id in existing_ob:
+                        op, num_slots = map_rate_to_slot(rate)
                         if debug:
-                            print(f0, band)
-                        print("INFO: RSA completed for Flex Lightpath with OB already in place")
-                        if flow_list is None:
-                            self.null_values(self.flow_id)
-                            continue
-                        slots_i = []
-                        for i in slots:
-                            slots_i.append(int(i))
-                        # return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
-                        #        links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band
-                        self.db_flows[self.flow_id]["flows"] = flow_list
-                        self.db_flows[self.flow_id]["band_type"] = band_range
-                        self.db_flows[self.flow_id]["slots"] = slots_i
-                        self.db_flows[self.flow_id]["fiber_forward"] = fiber_f
-                        self.db_flows[self.flow_id]["fiber_backward"] = fiber_b
-                        self.db_flows[self.flow_id]["op-mode"] = op
-                        self.db_flows[self.flow_id]["n_slots"] = num_slots
-                        self.db_flows[self.flow_id]["links"] = temp_links2
-                        self.db_flows[self.flow_id]["path"] = temp_path
-                        self.db_flows[self.flow_id]["band"] = band
-                        self.db_flows[self.flow_id]["freq"] = f0
-                        self.db_flows[self.flow_id]["is_active"] = True
-                        self.db_flows[self.flow_id]["parent_opt_band"] = ob_id
-                        self.db_flows[self.flow_id]["new_optical_band"] = False
-                        self.optical_bands[ob_id]["served_lightpaths"].append(self.flow_id)
-                        if bidir:
-                            rev_ob_id = self.optical_bands[ob_id]["reverse_optical_band_id"]
-                            self.optical_bands[rev_ob_id]["served_lightpaths"].append(self.flow_id)
-                        return self.flow_id, ob_id
-                    else:
-                        print("not enough slots")
-        print("INFO: Not existing OB meeting requirements")
+                            print(temp_links2)
+                        c_slots, l_slots, s_slots = self.get_slots(temp_links2, num_slots, ob_id)
+                        if debug:
+                            print(c_slots)
+                            print(l_slots)
+                            print(s_slots)
+                        if len(c_slots) >= num_slots or len(l_slots) >= num_slots or len(s_slots) >= num_slots:
+                            flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports_fs(temp_links2, num_slots,
+                                                                                                            c_slots,
+                                                                                                            l_slots, s_slots, bidir,
+                                                                                                            ob_id)
+                            f0, band = freqency_converter(band_range, slots)
+                            if debug:
+                                print(f0, band)
+                            print("INFO: RSA completed for Flex Lightpath with OB already in place")
+                            if flow_list is None:
+                                self.null_values(self.flow_id)
+                                continue
+                            slots_i = []
+                            for i in slots:
+                                slots_i.append(int(i))
+                            # return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
+                            #        links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band
+                            self.db_flows[self.flow_id]["flows"] = flow_list
+                            self.db_flows[self.flow_id]["band_type"] = band_range
+                            self.db_flows[self.flow_id]["slots"] = slots_i
+                            self.db_flows[self.flow_id]["fiber_forward"] = fiber_f
+                            self.db_flows[self.flow_id]["fiber_backward"] = fiber_b
+                            self.db_flows[self.flow_id]["op-mode"] = op
+                            self.db_flows[self.flow_id]["n_slots"] = num_slots
+                            self.db_flows[self.flow_id]["links"] = temp_links2
+                            self.db_flows[self.flow_id]["path"] = temp_path
+                            self.db_flows[self.flow_id]["band"] = band
+                            self.db_flows[self.flow_id]["freq"] = f0
+                            self.db_flows[self.flow_id]["is_active"] = True
+                            self.db_flows[self.flow_id]["parent_opt_band"] = ob_id
+                            self.db_flows[self.flow_id]["new_optical_band"] = 0
+                            self.optical_bands[ob_id]["served_lightpaths"].append(self.flow_id)
+                            '''
+                            if bidir:
+                                rev_ob_id = self.optical_bands[ob_id]["reverse_optical_band_id"]
+                                self.optical_bands[rev_ob_id]["served_lightpaths"].append(self.flow_id)
+                            '''
+                            return self.flow_id, ob_id
+                        else:
+                            print("not enough slots")
+        if band is None:
+            print("INFO: Not existing optical-band meeting the requirements")
+        else:
+            print("INFO: optical-band width specified")
         #if no OB I create a new one
         links, path = self.compute_path(src, dst)
-        optical_band_id, temp_links = self.create_optical_band(links, path, src, dst, bidir)
+        optical_band_id, temp_links = self.create_optical_band(links, path, bidir, num_slots_ob)
         op, num_slots = map_rate_to_slot(rate)
+        self.flow_id += 1
+        self.db_flows[self.flow_id] = {}
+        self.db_flows[self.flow_id]["flow_id"] = self.flow_id
+        self.db_flows[self.flow_id]["src"] = src
+        self.db_flows[self.flow_id]["dst"] = dst
+        self.db_flows[self.flow_id]["bitrate"] = rate
+        self.db_flows[self.flow_id]["bidir"] = bidir
+
         if debug:
             print(temp_links)
         c_slots, l_slots, s_slots = self.get_slots(temp_links, num_slots, optical_band_id)
@@ -794,9 +835,11 @@ class RSA():
             self.db_flows[self.flow_id]["freq"] = f0
             self.db_flows[self.flow_id]["is_active"] = True
             self.db_flows[self.flow_id]["parent_opt_band"] = optical_band_id
-            self.db_flows[self.flow_id]["new_optical_band"] = True
+            self.db_flows[self.flow_id]["new_optical_band"] = 1
             self.optical_bands[optical_band_id]["served_lightpaths"].append(self.flow_id)
+            '''
             if bidir:
                 rev_ob_id = self.optical_bands[optical_band_id]["reverse_optical_band_id"]
                 self.optical_bands[rev_ob_id]["served_lightpaths"].append(self.flow_id)
+            '''
         return self.flow_id, optical_band_id

@@ -16,6 +16,10 @@ def map_modulation_to_op(mod):
         return 10
 
 
+def map_band_to_slot(band):
+    return int(band/12.5)
+
+
 def map_rate_to_slot(rate):
     if rate == 100:
         mod = "DP-QPSK"

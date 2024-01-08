@@ -49,12 +49,16 @@ class AddLightpath(Resource):
 
 
 #@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>')
-@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>/<int:bidir>')
+@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>',
+               defaults={"bidir": 1, "band": None})
+@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>/<int:bidir>',
+               defaults={"band": None})
+@optical.route('/AddFlexLightpath/<string:src>/<string:dst>/<int:bitrate>/<int:bidir>/<int:band>',)
 @optical.response(200, 'Success')
 @optical.response(404, 'Error, not found')
 class AddFlexLightpath(Resource):
     @staticmethod
-    def put(src, dst, bitrate, bidir=1):
+    def put(src, dst, bitrate, bidir=1, band=None):
 
         print("INFO: New FlexLightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
         t0 = time.time()*1000.0
@@ -62,7 +66,7 @@ class AddFlexLightpath(Resource):
             rsa.g.printGraph()
 
         if rsa is not None:
-            flow_id, optical_band_id = rsa.rsa_fs_computation(src, dst, bitrate, bidir)
+            flow_id, optical_band_id = rsa.rsa_fs_computation(src, dst, bitrate, bidir, band)
             if flow_id is not None:
                 if rsa.db_flows[flow_id]["op-mode"] == 0:
                     return 'No path found', 404
