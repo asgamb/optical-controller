@@ -20,9 +20,9 @@ class RSA():
 
     def init_link_slots(self, testing):
         if not testing:
-            for l in self.links_dict:
-                for f in self.links_dict[l]["fibers"]:
-                    fib = self.links_dict[l]["fibers"][f]
+            for l in self.links_dict["links"]:
+                for fib in l["optical_link"]["details"]["fibers"]:
+                    #fib = self.links_dict[l]["fibers"][f]
                     if len(fib["c_slots"]) > 0:
                         fib["c_slots"] = list(range(0, Nc))
                     if len(fib["l_slots"]) > 0:
@@ -31,9 +31,11 @@ class RSA():
                         fib["s_slots"] = list(range(0, Ns))
                     if debug:
                         print(fib)
-        for l1 in self.links_dict:
-            for f1 in self.links_dict[l1]["fibers"]:
-                fib1 = self.links_dict[l1]["fibers"][f1]
+        for l1 in self.links_dict["links"]:
+
+            for fib1 in l1["optical_link"]["details"]["fibers"]:
+                #fib1 = self.links_dict[l1]["details"]["fibers"][f1]
+
                 self.c_slot_number = len(fib1["c_slots"])
                 self.l_slot_number = len(fib1["l_slots"])
                 self.s_slot_number = len(fib1["s_slots"])
@@ -46,12 +48,12 @@ class RSA():
         self.g = dijsktra.Graph()
         for n in self.nodes_dict:
             self.g.add_vertex(n)
-        for l in self.links_dict:
+        for l in self.links_dict["links"]:
             if debug:
                 print(l)
-            [s, d] = l.split('-')
-            ps = self.links_dict[l]["source"]
-            pd = self.links_dict[l]["target"]
+            [s, d] = l["optical_link"]["name"].split('-')
+            ps = l["optical_link"]["details"]["source"]
+            pd = l["optical_link"]["details"]["target"]
             self.g.add_edge(s, d, ps, pd, 1)
 
         print("INFO: Graph initiated.")
@@ -72,7 +74,9 @@ class RSA():
                 d = path[i + 1]
                 link_id = "{}-{}".format(s, d)
                 if debug:
-                    print(link_id, self.links_dict[link_id])
+                    #print(link_id, self.links_dict[link_id])
+                    print(link_id, self.get_link_by_name(link_id))
+
                 links.append(link_id)
         self.g.reset_graph()
         return links, path
@@ -108,29 +112,31 @@ class RSA():
             l_slots[l] = []
             s_slots[l] = []
             found = 0
-            for f in self.links_dict[l]['fibers'].keys():
-                fib = self.links_dict[l]['fibers'][f]
-                if l == add:
-                    if 'used' in fib:
-                        if fib["used"]:
-                            #if debug:
-                            print("WARNING!!!: link {}, fiber {} is already in use".format(l, f))
-                            continue
-                if l == drop:
-                    if 'used' in fib:
-                        if fib["used"]:
-                            #if debug:
-                            print("WARNING!!!: link {}, fiber {} is already in use".format(l, f))
-                            continue
-                if len(fib["c_slots"])> 0:
-                    c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val_c))
-                if len(fib["l_slots"]) > 0:
-                    l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val_l))
-                if len(fib["s_slots"]) > 0:
-                    s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val_s))
-                if debug:
-                    print(l, c_slots[l])
-                found = 1
+            for link in self.links_dict["links"]:
+                if link["optical_link"]["name"] == l:
+                    #for f in self.links_dict[l]['fibers'].keys():
+                    for fib in link["optical_link"]["details"]["fibers"]:
+                        if l == add:
+                            if 'used' in fib:
+                                if fib["used"]:
+                                    #if debug:
+                                    print("WARNING!!!: link {}, fiber {} is already in use".format(l, fib["ID"]))
+                                    continue
+                        if l == drop:
+                            if 'used' in fib:
+                                if fib["used"]:
+                                    #if debug:
+                                    print("WARNING!!!: link {}, fiber {} is already in use".format(l, fib["ID"]))
+                                    continue
+                        if len(fib["c_slots"]) > 0:
+                            c_slots[l] = combine(c_slots[l], consecutives(fib["c_slots"], val_c))
+                        if len(fib["l_slots"]) > 0:
+                            l_slots[l] = combine(l_slots[l], consecutives(fib["l_slots"], val_l))
+                        if len(fib["s_slots"]) > 0:
+                            s_slots[l] = combine(s_slots[l], consecutives(fib["s_slots"], val_s))
+                        if debug:
+                            print(l, c_slots[l])
+                        found = 1
             if found == 0:
                 return [], [], []
 
@@ -234,11 +240,10 @@ class RSA():
             if debug:
                 print(l)
                 print(fiber_f[l])
-            # if debug:
-            link = self.links_dict[l]
-            f = fiber_f[l]
-            #for f in link["fibers"].keys():
-            fib = link['fibers'][f]
+            #link = self.links_dict[l]
+            #f = fiber_f[l]
+            #fib = link['fibers'][f]
+            fib = self.get_fiber_details(l, fiber_f[l])
             if not list_in_list(slots, fib[band]):
                 self.restore_link(fib, slots, band)
                 if debug:
@@ -250,61 +255,97 @@ class RSA():
                 if debug:
                     print(rl)
                     print(fiber_b[rl])
-                rlink = self.links_dict[rl]
-                rf = fiber_b[rl]
-                rfib = rlink['fibers'][rf]
+                #rlink = self.links_dict[rl]
+                #rf = fiber_b[rl]
+                #rfib = rlink['fibers'][rf]
+                rfib = self.get_fiber_details(rl, fiber_b[rl])
                 if not list_in_list(slots, rfib[band]):
                     self.restore_link(rfib, slots, band)
                     if debug:
                         print(rfib[band])
-            if o_b_id is not None:
-                rev_o_band_id = self.optical_bands[o_b_id]["reverse_optical_band_id"]
-                self.restore_optical_band(rev_o_band_id, slots, band)
+            #changed according to TFS development
+            #if o_b_id is not None:
+            #    rev_o_band_id = self.optical_bands[o_b_id]["reverse_optical_band_id"]
+            #    self.restore_optical_band(rev_o_band_id, slots, band)
         return True
 
     def get_fibers_forward(self, links, slots, band):
         fiber_list = {}
         add = links[0]
         drop = links[-1]
+        print(links)
+        '''
+        for link in self.links_dict["links"]:
+            if link["optical_link"]["name"] == l:
+                # for f in self.links_dict[l]['fibers'].keys():
+                for fib in link["optical_link"]["details"]["fibers"]:
+
+        '''
         for l in links:
-            for f in self.links_dict[l]['fibers'].keys():
-                fib = self.links_dict[l]['fibers'][f]
-                if l == add:
-                    if 'used' in fib:
-                        if fib["used"]:
-                            if debug:
-                                print("link {}, fiber {} is already in use".format(l, f))
-                            continue
-                if l == drop:
-                    if 'used' in fib:
-                        if fib["used"]:
-                            if debug:
-                                print("link {}, fiber {} is already in use".format(l, f))
-                            continue
-                if list_in_list(slots, fib[band]):
-                    fiber_list[l] = f
-                    self.update_link(fib, slots, band)
-                    break
+            for link in self.links_dict["links"]:
+                if link["optical_link"]["name"] == l:
+                    for fib in link["optical_link"]["details"]["fibers"]:
+                        #for f in self.links_dict[l]['fibers'].keys():
+                        #for fib in l["optical_link"]["details"]["fibers"]:
+                        #fib = self.links_dict[l]['fibers'][f]
+                        if l == add:
+                            if 'used' in fib:
+                                if fib["used"]:
+                                    if debug:
+                                        print("link {}, fiber {} is already in use".format(l, fib["ID"]))
+                                    continue
+                        if l == drop:
+                            if 'used' in fib:
+                                if fib["used"]:
+                                    if debug:
+                                        print("link {}, fiber {} is already in use".format(l, fib["ID"]))
+                                    continue
+                        if list_in_list(slots, fib[band]):
+                            fiber_list[l] = fib["ID"]
+                            self.update_link(fib, slots, band)
+                            break
         print("INFO: Path forward computation completed")
         return fiber_list
+
+    def get_link_by_name (self, key):
+        for link in self.links_dict["links"]:
+            if link["optical_link"]["name"] == key:
+                if debug:
+                    print(link)
+        return link
+
+    def get_fiber_details(self, link_key, fiber_id):
+        for link in self.links_dict["links"]:
+            if link["optical_link"]["name"] == link_key:
+                if debug:
+                    print(link)
+                for fib in link["optical_link"]["details"]["fibers"]:
+                    if fib["ID"] == fiber_id:
+                        return fib
+        return None
+
 
     def get_fibers_backward(self, links, fibers, slots, band):
         fiber_list = {}
         #r_drop = reverse_link(links[0])
         #r_add = reverse_link(links[-1])
         for l in fibers.keys():
-            if debug:
-                print(l)
-                print(fibers[l])
-            port = self.links_dict[l]["fibers"][fibers[l]]["src_port"]
+            fib = self.get_fiber_details(l, fibers[l])
+            '''
+            link = self.get_link_by_name(l)
+            #port = self.links_dict[l]["fibers"][fibers[l]]["src_port"]
+            for fib in link["optical_link"]["details"]["fibers"]:
+                if fib["ID"] == fibers[l]:
+            '''
+            port = fib["src_port"]
             r_l = reverse_link(l)
-            r_link = self.links_dict[r_l]
-            for f in r_link["fibers"].keys():
-                fib = self.links_dict[r_l]['fibers'][f]
-                if r_link["fibers"][f]["remote_peer_port"] == port:
-                    if list_in_list(slots, fib[band]):
-                        fiber_list[r_l] = f
-                        self.update_link(fib, slots, band)
+            r_link = self.get_link_by_name(r_l)
+            #for f in r_link["fibers"].keys():
+            for r_fib in r_link["optical_link"]["details"]["fibers"]:
+                if r_fib["remote_peer_port"] == port:
+                    if list_in_list(slots, r_fib[band]):
+                        fiber_list[r_l] = r_fib["ID"]
+                        self.update_link(r_fib, slots, band)
         print("INFO: Path backward computation completed")
         return fiber_list
 
@@ -345,19 +386,25 @@ class RSA():
                 r_inport = "0"
             f = fibers_f[lx]
             src, dst = lx.split("-")
-            outport = self.links_dict[lx]['fibers'][f]["src_port"]
+            fibx = self.get_fiber_details(lx, f)
+            #outport = self.links_dict[lx]['fibers'][f]["src_port"]
+            outport = fibx["src_port"]
+
             t_flows[src] = {}
             t_flows[src]["f"] = {}
             t_flows[src]["b"] = {}
             t_flows[src]["f"] = {"in": inport, "out": outport}
 
             if bidir:
-                r_inport = self.links_dict[lx]['fibers'][f]["local_peer_port"]
+                #r_inport = self.links_dict[lx]['fibers'][f]["local_peer_port"]
+                r_inport = fibx["local_peer_port"]
                 t_flows[src]["b"] = {"in": r_inport, "out": r_outport}
 
-            inport = self.links_dict[lx]['fibers'][f]["dst_port"]
+            #inport = self.links_dict[lx]['fibers'][f]["dst_port"]
+            inport = fibx["dst_port"]
             if bidir:
-                r_outport = self.links_dict[lx]['fibers'][f]["remote_peer_port"]
+                #r_outport = self.links_dict[lx]['fibers'][f]["remote_peer_port"]
+                r_outport = fibx["remote_peer_port"]
             t_flows[dst] = {}
             t_flows[dst]["f"] = {}
             t_flows[dst]["b"] = {}
@@ -408,37 +455,46 @@ class RSA():
         #flows_add_side
         f = fibers_f[add]
         src, dst = add.split("-")
-        outport = self.links_dict[add]['fibers'][f]["src_port"]
+        fibx = self.get_fiber_details(add, f)
+        #outport = self.links_dict[add]['fibers'][f]["src_port"]
+        outport = fibx["src_port"]
         #T1 rules
         t_flows[src] = {}
         t_flows[src]["f"] = {}
         t_flows[src]["b"] = {}
         t_flows[src]["f"] = {"in": port_0, "out": outport}
         if bidir:
-            r_inport = self.links_dict[add]['fibers'][f]["local_peer_port"]
+            #r_inport = self.links_dict[add]['fibers'][f]["local_peer_port"]
+            r_inport = fibx["local_peer_port"]
             t_flows[src]["b"] = {"in": r_inport, "out": port_0}
 
         #R1 rules
         t_flows[dst] = {}
         t_flows[dst]["f"] = {}
         t_flows[dst]["b"] = {}
-        inport = self.links_dict[add]['fibers'][f]["dst_port"]
+        #inport = self.links_dict[add]['fibers'][f]["dst_port"]
+        inport = fibx["dst_port"]
         opt_band_src_port = self.optical_bands[o_band_id]["src_port"]
         t_flows[dst]["f"] = {"in": inport, "out": opt_band_src_port}
         #to modify to peer ports
         if bidir:
-            r_inport = self.links_dict[add]['fibers'][f]["local_peer_port"]
+            #r_inport = self.links_dict[add]['fibers'][f]["local_peer_port"]
+            r_inport = fibx["local_peer_port"]
             t_flows[src]["b"] = {"in": r_inport, "out": port_0}
         if bidir:
             rev_opt_band_dst_port = self.optical_bands[o_band_id]["rev_dst_port"]
-            r_outport = self.links_dict[add]['fibers'][f]["remote_peer_port"]
+            #r_outport = self.links_dict[add]['fibers'][f]["remote_peer_port"]
+            r_outport = fibx["remote_peer_port"]
             t_flows[dst]["b"] = {"in": rev_opt_band_dst_port, "out": r_outport}
 
         #flows_drop_side
         # R2 rules
         f = fibers_f[drop]
         src, dst = drop.split("-")
-        outport = self.links_dict[drop]['fibers'][f]["src_port"]
+        fiby = self.get_fiber_details(drop, f)
+        #outport = self.links_dict[drop]['fibers'][f]["src_port"]
+        outport = fiby["src_port"]
+
         t_flows[src] = {}
         t_flows[src]["f"] = {}
         t_flows[src]["b"] = {}
@@ -446,15 +502,18 @@ class RSA():
         t_flows[src]["f"] = {"in": opt_band_dst_port, "out": outport}
         if bidir:
             rev_opt_band_src_port = self.optical_bands[o_band_id]["rev_src_port"]
-            r_inport = self.links_dict[drop]['fibers'][f]["local_peer_port"]
+            #r_inport = self.links_dict[drop]['fibers'][f]["local_peer_port"]
+            r_inport = fiby["local_peer_port"]
             t_flows[src]["b"] = {"in": r_inport, "out": rev_opt_band_src_port}
         t_flows[dst] = {}
         t_flows[dst]["f"] = {}
         t_flows[dst]["b"] = {}
-        inport = self.links_dict[drop]['fibers'][f]["dst_port"]
+        #inport = self.links_dict[drop]['fibers'][f]["dst_port"]
+        inport = fiby["dst_port"]
         t_flows[dst]["f"] = {"in": inport, "out": port_0}
         if bidir:
-            r_inport = self.links_dict[drop]['fibers'][f]["remote_peer_port"]
+            #r_inport = self.links_dict[drop]['fibers'][f]["remote_peer_port"]
+            r_inport = fiby["remote_peer_port"]
             t_flows[dst]["b"] = {"in": port_0, "out": r_inport}
 
         if debug:
@@ -552,8 +611,6 @@ class RSA():
         print("INFO: Creating optical-band of {} slots".format(num_slots))
         self.opt_band_id += 1
         forw_opt_band_id = self.opt_band_id
-        if bidir:
-            self.opt_band_id += 1
         self.optical_bands[forw_opt_band_id] = {}
         self.optical_bands[forw_opt_band_id]["optical_band_id"] = forw_opt_band_id
         self.optical_bands[forw_opt_band_id]["bidir"] = bidir
@@ -602,6 +659,7 @@ class RSA():
         if len(c_slots) > 0 or len(l_slots) > 0 or len(s_slots) > 0:
             flow_list, band_range, slots, fiber_f, fiber_b = self.select_slots_and_ports(links, num_slots, c_slots, l_slots, s_slots, bidir)
             f0, band = freqency_converter(band_range, slots)
+            print(flow_list, band_range, slots, fiber_f, fiber_b)
             '''
 
             flow_list_b = {}
@@ -624,23 +682,33 @@ class RSA():
             slots_i = []
             for i in slots:
                 slots_i.append(int(i))
+
             # return links, path, flow_list, band_range, slots, fiber_f, fiber_b, op, num_slots, f0, band
             #        links, path, flows, bx, slots, fiber_f, fiber_b, op, n_slots, f0, band
-            src_port = flow_list[path[0]]['f']['out']
-            dst_port = flow_list[path[-1]]['f']['in']
+            if len(flow_list) > 0:
+                src_port = flow_list[path[0]]['f']['out']
+                dst_port = flow_list[path[-1]]['f']['in']
+                print(flow_list)
             if len(fiber_f.keys()) == 1:
                 link_x = list(fiber_f.keys())[0]
-                fib_x = fiber_f[link_x]
-                rev_dst_port = self.links_dict[link_x]['fibers'][fib_x]["local_peer_port"]
-                rev_src_port = self.links_dict[link_x]['fibers'][fib_x]["remote_peer_port"]
+                #fib_x = fiber_f[link_x]
+                #rev_dst_port = self.links_dict[link_x]['fibers'][fib_x]["local_peer_port"]
+                #rev_src_port = self.links_dict[link_x]['fibers'][fib_x]["remote_peer_port"]
+                fibx = self.get_fiber_details(link_x, fiber_f[link_x])
+                rev_dst_port = fibx["local_peer_port"]
+                rev_src_port = fibx["remote_peer_port"]
             else:
                 link_in = list(fiber_f.keys())[0]
                 link_out = list(fiber_f.keys())[-1]
+                fib_inx = self.get_fiber_details(link_in, fiber_f[link_in])
+                fib_outx = self.get_fiber_details(link_out, fiber_f[link_out])
+                rev_dst_port = fib_inx["local_peer_port"]
+                rev_src_port = fib_outx["remote_peer_port"]
 
-                fib_in = fiber_f[link_in]
-                fib_out = fiber_f[link_out]
-                rev_dst_port = self.links_dict[link_in]['fibers'][fib_in]["local_peer_port"]
-                rev_src_port = self.links_dict[link_out]['fibers'][fib_out]["remote_peer_port"]
+                #fib_in = fiber_f[link_in]
+                #fib_out = fiber_f[link_out]
+                #rev_dst_port = self.links_dict[link_in]['fibers'][fib_in]["local_peer_port"]
+                #rev_src_port = self.links_dict[link_out]['fibers'][fib_out]["remote_peer_port"]
 
             self.optical_bands[forw_opt_band_id]["flows"] = flow_list
             self.optical_bands[forw_opt_band_id]["band_type"] = band_range
@@ -707,16 +775,15 @@ class RSA():
             return None, optical_band_id
         print("INFO: TP to TP connection")
         if band is None:
-            #todo check with multiple links at transponder nodes
-            #in case T1 is connected to R1 and R2
             temp_links2 = []
             temp_path = []
-            src_links = get_links_form_node(self.links_dict, src)
+            src_links = get_links_from_node(self.links_dict, src)
             dst_links = get_links_to_node(self.links_dict, dst)
             if len(src_links.keys()) >= 1:
                 temp_links2.append(list(src_links.keys())[0])
-            if len(src_links.keys()) >= 1:
+            if len(dst_links.keys()) >= 1:
                 temp_links2.append(list(dst_links.keys())[0])
+
             if len(temp_links2) == 2:
                 [t_src, roadm_src] = temp_links2[0].split('-')
                 [roadm_dst, t_dst] = temp_links2[1].split('-')
@@ -732,6 +799,7 @@ class RSA():
                 self.db_flows[self.flow_id]["dst"] = dst
                 self.db_flows[self.flow_id]["bitrate"] = rate
                 self.db_flows[self.flow_id]["bidir"] = bidir
+
                 if len(existing_ob) > 0:
                     print("INFO: Evaluating existing OB  {}".format(existing_ob))
                     #first checking in existing OB

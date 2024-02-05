@@ -90,7 +90,7 @@ class AddFlexLightpath(Resource):
 @optical.route('/DelFlexLightpath/<int:flow_id>/<string:src>/<string:dst>/<int:bitrate>/<int:o_band_id>')
 @optical.response(200, 'Success')
 @optical.response(404, 'Error, not found')
-class DelLightpath(Resource):
+class DelFLightpath(Resource):
     @staticmethod
     def delete(flow_id, src, dst, bitrate, o_band_id):
         if flow_id in rsa.db_flows.keys():

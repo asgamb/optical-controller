@@ -125,6 +125,7 @@ def readTopologyData(nodes, topology):
         topo_file = open(topology, 'r')
         nodes = json.load(nodes_file)
         topo = json.load(topo_file)
+        print(topo)
         nodes_file.close()
         topo_file.close()
         return nodes, topo
@@ -139,18 +140,18 @@ def reverse_links(links):
         result.append("{}-{}".format(b, a))
     return result
 
-def get_links_form_node(topology, node):
+def get_links_from_node(topology, node):
     result = {}
-    for link in topology.keys():
-        if "{}-".format(node) in link:
-            result[link] = topology[link]
+    for link in topology["links"]:
+        if "{}-".format(node) in link["optical_link"]["name"]:
+            result[link["optical_link"]["name"]] = link
     return result
 
 def get_links_to_node(topology, node):
     result = {}
-    for link in topology.keys():
-        if "-{}".format(node) in link:
-            result[link] = topology[link]
+    for link in topology["links"]:
+        if "-{}".format(node) in link["optical_link"]["name"]:
+            result[link["optical_link"]["name"]] = link
     return result
 
 
