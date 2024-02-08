@@ -1,14 +1,16 @@
 from flask import Flask
 from flask import render_template
 from flask_restplus import Resource, Api
+
 from tools import *
 from variables import *
 from RSA import RSA
 import time
-import time
+import logging
+
 
 rsa = None
-
+LOGGER = logging.getLogger(__name__)
 
 app = Flask(__name__)
 api = Api(app, version='1.0', title='Optical controller API',
@@ -31,7 +33,7 @@ class AddLightpath(Resource):
     @staticmethod
     def put(src, dst, bitrate, bidir=1):
 
-        print("INFO: New Lightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
+        LOGGER.info("INFO: New Lightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
         t0 = time.time()*1000.0
         if debug:
             rsa.g.printGraph()
@@ -42,7 +44,7 @@ class AddLightpath(Resource):
                 return 'No path found', 404
             t1 = time.time()*1000.0
             elapsed = t1 - t0
-            print("INFO: time elapsed = {} ms".format(elapsed))
+            LOGGER.info("INFO: time elapsed = {} ms".format(elapsed))
             return rsa.db_flows[flow_id], 200
         else:
             return "Error", 404
@@ -58,15 +60,17 @@ class AddLightpath(Resource):
 @optical.response(404, 'Error, not found')
 class AddFlexLightpath(Resource):
     @staticmethod
-    def put(src, dst, bitrate, bidir=1, band=None):
-
+    def put(src, dst, bitrate,bidir=1, band=None):
+        
         print("INFO: New FlexLightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
+        LOGGER.info("INFO: New FlexLightpath request from {} to {} with rate {} ".format(src, dst, bitrate))
         t0 = time.time()*1000.0
         if debug:
             rsa.g.printGraph()
 
         if rsa is not None:
             flow_id, optical_band_id = rsa.rsa_fs_computation(src, dst, bitrate, bidir, band)
+            print (f"flow_id {flow_id} and optical_band_id {optical_band_id} ")
             if flow_id is not None:
                 if rsa.db_flows[flow_id]["op-mode"] == 0:
                     return 'No path found', 404
@@ -81,7 +85,7 @@ class AddFlexLightpath(Resource):
                 else:
                     t1 = time.time() * 1000.0
                     elapsed = t1 - t0
-                    print("INFO: time elapsed = {} ms".format(elapsed))
+                    LOGGER.info("INFO: time elapsed = {} ms".format(elapsed))
 
                     return rsa.optical_bands[optical_band_id], 200
         else:
@@ -90,7 +94,7 @@ class AddFlexLightpath(Resource):
 @optical.route('/DelFlexLightpath/<int:flow_id>/<string:src>/<string:dst>/<int:bitrate>/<int:o_band_id>')
 @optical.response(200, 'Success')
 @optical.response(404, 'Error, not found')
-class DelFLightpath(Resource):
+class DelLightpath(Resource):
     @staticmethod
     def delete(flow_id, src, dst, bitrate, o_band_id):
         if flow_id in rsa.db_flows.keys():
@@ -109,7 +113,7 @@ class DelFLightpath(Resource):
                         rsa.optical_bands[rev_ob_id]["served_lightpaths"].remove(flow_id)
 
                     if debug:
-                        print(links_dict)
+                       LOGGER.info(links_dict)
                     return "flow {} deleted".format(flow_id), 200
                 else:
                     return "flow {} not matching".format(flow_id), 404
@@ -120,7 +124,7 @@ class DelFLightpath(Resource):
                     rsa.db_flows[flow_id]["is_active"] = False
                     rsa.optical_bands[ob_id]["served_lightpaths"].remove(flow_id)
                     if debug:
-                        print(links_dict)
+                       LOGGER.info(links_dict)
                     return "flow {} deleted".format(flow_id), 200
                 else:
                     return "flow {} not matching".format(flow_id), 404
@@ -143,7 +147,7 @@ class DelLightpath(Resource):
                 rsa.del_flow(flow)
                 rsa.db_flows[flow_id]["is_active"] = False
                 if debug:
-                    print(links_dict)
+                   LOGGER.info(links_dict)
                 return "flow {} deleted".format(flow_id), 200
             else:
                 return "flow {} not matching".format(flow_id), 404
@@ -159,7 +163,7 @@ class GetFlows(Resource):
     def get():
         try:
             if debug:
-                print(rsa.db_flows)
+               LOGGER.info(rsa.db_flows)
             return rsa.db_flows, 200
         except:
             return "Error", 404
@@ -170,9 +174,11 @@ class GetFlows(Resource):
 class GetBands(Resource):
     @staticmethod
     def get():
+        print("Getting ")
+        LOGGER.info("Getting")
         try:
             if debug:
-                print(rsa.optical_bands)
+               LOGGER.info(rsa.optical_bands)
             return rsa.optical_bands, 200
         except:
             return "Error", 404
@@ -187,7 +193,7 @@ class GetBand(Resource):
         for ob_idx in rsa.optical_bands.keys():
             if str(ob_idx) == str(ob_id):
                 if debug:
-                    print(rsa.optical_bands[ob_id])
+                   LOGGER.info(rsa.optical_bands[ob_id])
                 return rsa.optical_bands[ob_idx], 200
         return {}, 404
 
@@ -201,16 +207,26 @@ class GetFlows(Resource):
         global links_dict
         try:
             if debug:
-                print(links_dict)
+               LOGGER.info(links_dict)
             return links_dict, 200
         except:
             return "Error", 404
 
 
 if __name__ == '__main__':
+    
+
+    # Start metrics server
+
+    LOGGER.info('Starting...')
+
+
 
     nodes_dict, links_dict = readTopologyData(nodes_json, topology_json)
-    rsa = RSA(nodes_dict, links_dict)
-    print(rsa.init_link_slots(testing))
 
-    app.run(host='0.0.0.0', port=5000)
+    topologies,links=  getTopology()
+    print ("topologies{} and devices {}".format(topologies,links))
+    rsa = RSA(nodes_dict, links_dict)
+    LOGGER.info(rsa.init_link_slots(testing))
+
+    app.run(host='0.0.0.0', port=5022,debug=True)
